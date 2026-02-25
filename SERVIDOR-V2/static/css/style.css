@@ -1,0 +1,101 @@
+/* Base de Dashboard */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+    margin: 0;
+}
+
+.container { max-width: 1400px; margin: 0 auto; }
+
+header, .admin-panel {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    margin-bottom: 25px;
+}
+
+/* Zona de Carga CSV */
+#drop-zone {
+    border: 2px dashed #667eea;
+    padding: 30px;
+    margin: 15px 0;
+    border-radius: 8px;
+    color: #667eea;
+    text-align: center;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+#drop-zone.hover { background: #e7f3ff; border-color: #3b82f6; }
+
+/* Tarjetas de Estadísticas */
+.stats { display: flex; gap: 20px; margin-bottom: 20px; }
+.stat-card {
+    background: white; padding: 20px; border-radius: 12px; flex: 1;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; font-weight: bold;
+}
+.stat-card span { display: block; font-size: 2em; margin-top: 10px; }
+
+/* =========================================
+   NUEVO DISEÑO DE CARDS DE COMPUTADORAS
+   ========================================= */
+.computers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.computer-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    border-top: 5px solid #48bb78; /* Borde superior en lugar de lateral */
+    transition: transform 0.2s;
+}
+.computer-card:hover { transform: translateY(-3px); }
+.computer-card.offline { border-top-color: #f56565; opacity: 0.85; }
+
+/* Encabezado de la Card */
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #edf2f7; padding-bottom: 10px; }
+.card-header h3 { margin: 0; font-size: 1.2em; color: #2d3748; }
+.status-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; }
+.status-badge.online { background: #c6f6d5; color: #22543d; }
+.status-badge.offline { background: #fed7d7; color: #742a2a; }
+
+/* Datos Técnicos */
+.info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9em; color: #4a5568; }
+.info-row strong { color: #2d3748; }
+
+/* Bloque del Alumno / Estado (El Kiosko) */
+.user-status {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.user-status.locked { background: #fff5f5; border: 1px dashed #fc8181; }
+.user-status.active { background: #f0fff4; border: 1px solid #9ae6b4; }
+
+.user-status .icon { font-size: 1.8em; }
+.user-details { display: flex; flex-direction: column; }
+.user-name { font-weight: bold; color: #22543d; font-size: 1.05em; }
+.user-mat { font-size: 0.85em; color: #38a169; }
+.locked-text { font-weight: bold; color: #c53030; }
+
+/* Botón Eliminar */
+.btn-delete {
+    margin-top: 15px; width: 100%; padding: 8px;
+    background: #fff; border: 1px solid #fc8181; color: #e53e3e;
+    border-radius: 6px; cursor: pointer; transition: 0.3s;
+    font-weight: bold; font-size: 0.85em;
+}
+.btn-delete:hover { background: #fc8181; color: white; }

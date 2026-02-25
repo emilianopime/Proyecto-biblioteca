@@ -1,0 +1,8 @@
+# Framework principal (incluye request, jsonify, render_template)
+Flask==3.0.0
+# Manejo de datos
+pandas>=2.1.0
+# Conector de Base de Datos
+psycopg2-binary
+# Variables de entorno (opcional pero recomendado para Flask)
+python-dotenv

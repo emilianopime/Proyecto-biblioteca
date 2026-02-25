@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title> UACH - Dashboard de Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🖥️ Control de Laboratorio 🖥️</h1>
+        </header>
+
+        <section class="admin-panel">
+            <h3>📂 Carga de Alumnos (CSV)</h3>
+            <input type="text" id="tableName" placeholder="Nombre de tabla" style="padding:8px; width:200px;">
+            <div id="drop-zone">Suelta el archivo aquí</div>
+            <input type="file" id="fileInput" hidden>
+            <div id="upload-msg"></div>
+        </section>
+
+        <div class="stats" style="display:flex; gap:20px; margin-bottom:20px;">
+            <div class="stat-card" style="background:white; padding:15px; border-radius:10px; flex:1;">
+                Total: <span id="total-computers">0</span>
+            </div>
+            <div class="stat-card" style="background:white; padding:15px; border-radius:10px; flex:1; color:green;">
+                Online: <span id="online-computers">0</span>
+            </div>
+            <div class="stat-card" style="background:white; padding:15px; border-radius:10px; flex:1; color:red;">
+                Offline: <span id="offline-computers">0</span>
+            </div>
+        </div>
+
+        <div id="computers-container" class="computers-grid"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

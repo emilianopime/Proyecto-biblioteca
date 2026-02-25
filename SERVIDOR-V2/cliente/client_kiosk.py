@@ -1,0 +1,131 @@
+import tkinter as tk
+from tkinter import messagebox
+import threading
+import time
+import requests
+import socket
+
+# ==========================================
+# CONFIGURACIÓN DEL CLIENTE
+# ==========================================
+SERVER_URL = "http://192.168.1.68:5000"  # Cambiar por la IP del servidor
+COMPUTER_ID = socket.gethostname()  # Usa el nombre real de la PC como ID
+COMPUTER_NAME = f"Lab_{COMPUTER_ID}"
+
+
+class KioskApp:
+    def __init__(self, root):
+        self.root = root
+        self.current_user = None  # Almacenará el nombre del alumno activo por default en none
+        self.is_locked = True
+
+        # 1. Configuración Modo Kiosco Pantalla completa sin bordes
+        self.root.attributes('-fullscreen', True)
+        self.root.attributes('-topmost', True)  # Mantiene la ventana siempre arriba
+        self.root.configure(bg='#2d3748')
+
+        # Evitar que se cierre con Alt+F4
+        self.root.protocol("WM_DELETE_WINDOW", self.disable_event)
+        # 2. Construir la Interfaz de Usuario
+        self.build_ui()
+
+        # 3. Iniciar el hilo del latido
+        self.heartbeat_thread = threading.Thread(target=self.heartbeat_loop, daemon=True)
+        self.heartbeat_thread.start()
+
+    def build_ui(self):
+        # Contenedor central
+        frame = tk.Frame(self.root, bg='white', padx=40, pady=40)
+        frame.place(relx=0.5, rely=0.5, anchor='center')
+
+        tk.Label(frame, text="💻 Laboratorio UACH", font=("Segoe UI", 24, "bold"), bg='white', fg='#2b6cb0').pack(
+            pady=(0, 20))
+        tk.Label(frame, text="Ingresa tu matrícula para desbloquear el equipo:", font=("Segoe UI", 12),
+                 bg='white').pack(pady=(0, 10))
+
+        self.entry_matricula = tk.Entry(frame, font=("Segoe UI", 16), justify='center')
+        self.entry_matricula.pack(pady=10, fill='x')
+        self.entry_matricula.bind('<Return>', lambda event: self.verificar_login())  # Permitir 'Enter'
+        self.entry_matricula.focus()
+
+        self.btn_login = tk.Button(frame, text="Desbloquear PC", font=("Segoe UI", 14, "bold"), bg='#48bb78',
+                                   fg='white', command=self.verificar_login)
+        self.btn_login.pack(pady=20, fill='x')
+
+        self.lbl_mensaje = tk.Label(frame, text="", font=("Segoe UI", 12), bg='white')
+        self.lbl_mensaje.pack()
+
+    def disable_event(self):
+        # Evita que el usuario cierre la ventana con la 'X' o Alt+F4
+        pass
+
+    # ==========================================
+    # LÓGICA DE VERIFICACIÓN (Conexión al Servidor)
+    # ==========================================
+    def verificar_login(self):
+        matricula = self.entry_matricula.get().strip()
+        if not matricula:
+            self.lbl_mensaje.config(text="Ingresa una matrícula válida.", fg="red")
+            return
+        self.lbl_mensaje.config(text="Verificando...", fg="blue")
+        self.btn_login.config(state=tk.DISABLED)
+        # Usamos un hilo corto para la petición y no congelar la UI
+        threading.Thread(target=self._hacer_peticion_login, args=(matricula,), daemon=True).start()
+
+    def _hacer_peticion_login(self, matricula):
+        try:
+            response = requests.post(f"{SERVER_URL}/api/verify_student", json={"cardnumber": matricula}, timeout=5)
+            data = response.json()
+
+            if response.status_code == 200 and data.get('status') == 'success':
+                self.current_user = data['student']['name']
+                # Actualizar UI desde el hilo principal de Tkinter
+                self.root.after(0, self._desbloquear_exitoso)
+            else:
+                msg = data.get('message', 'Acceso denegado')
+                self.root.after(0, lambda: self._mostrar_error(msg))
+        except Exception as e:
+            self.root.after(0, lambda: self._mostrar_error("Error de conexión con el servidor."))
+
+    def _mostrar_error(self, mensaje):
+        self.lbl_mensaje.config(text=mensaje, fg="red")
+        self.btn_login.config(state=tk.NORMAL)
+        self.entry_matricula.delete(0, tk.END)
+
+    def _desbloquear_exitoso(self):
+        self.is_locked = False
+        self.lbl_mensaje.config(text=f"Bienvenido(a), {self.current_user}", fg="green")
+
+        # Ocultar la ventana principal para liberar el escritorio
+        self.root.after(1500, self.root.withdraw)
+
+    # ==========================================
+    # HILO DE MONITOREO
+    # ==========================================
+    def heartbeat_loop(self):
+        while True:
+            # Información del sistema (puedes agregar psutil aquí si quieres CPU/RAM)
+            info_sistema = {
+                "platform": "Windows",
+                "locked": self.is_locked,
+                "current_user": self.current_user if not self.is_locked else "BLOQUEADA"
+            }
+
+            data = {
+                "id": COMPUTER_ID,
+                "name": COMPUTER_NAME,
+                "info": info_sistema
+            }
+
+            try:
+                requests.post(f"{SERVER_URL}/api/heartbeat", json=data, timeout=3)
+            except requests.exceptions.RequestException:
+                pass  # Si el servidor cae, el cliente sigue intentando en silencio
+
+            time.sleep(10)  # Enviar latido cada 10 segundos
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = KioskApp(root)
+    root.mainloop()
