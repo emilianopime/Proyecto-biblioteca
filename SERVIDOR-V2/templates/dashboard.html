@@ -81,6 +81,41 @@
             text-transform: uppercase;
         }
 
+        /* Seccion derecha del topbar: usuario + boton de logout */
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .topbar-user {
+            font-size: 0.78em;
+            color: #64748b;
+        }
+
+        .topbar-user span {
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .btn-logout {
+            background: none;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #64748b;
+            font-size: 0.75em;
+            font-weight: 600;
+            font-family: inherit;
+            padding: 5px 12px;
+            cursor: pointer;
+        }
+
+        .btn-logout:hover {
+            border-color: #ef4444;
+            color: #f87171;
+            background: #2d1515;
+        }
+
         /* =============================================
            LAYOUT: sidebar + contenido
            ============================================= */
@@ -574,7 +609,13 @@
                 </div>
             </div>
         </div>
-        <span class="topbar-tag">UACH</span>
+        <div class="topbar-right">
+            <span class="topbar-tag">UACH</span>
+            <span class="topbar-user">Sesion: <span>{{ username }}</span></span>
+            <form method="GET" action="/logout" style="margin:0;">
+                <button type="submit" class="btn-logout">Cerrar sesion</button>
+            </form>
+        </div>
     </header>
 
     <!-- ===================== LAYOUT ===================== -->
