@@ -204,6 +204,78 @@ def verify_student():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+##############################################-ruta-estadisticas-####################################################
+@app.route('/api/stats')
+def get_stats():
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM alumnos")
+        total_alumnos = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM bitacora_uso WHERE evento='LOGIN' AND timestamp::date = CURRENT_DATE")
+        logins_hoy = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM bitacora_uso WHERE evento='LOGIN' AND timestamp >= date_trunc('week', NOW())")
+        logins_semana = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM bitacora_uso WHERE evento='LOGIN' AND timestamp >= date_trunc('month', NOW())")
+        logins_mes = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT a.sort1, COUNT(*) as total
+            FROM bitacora_uso b
+            JOIN alumnos a ON b.matricula = a.cardnumber
+            WHERE b.evento = 'LOGIN'
+            GROUP BY a.sort1 ORDER BY total DESC LIMIT 10
+        """)
+        top_carreras_uso = [{'carrera': r[0], 'total': r[1]} for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT computer_id, COUNT(*) as total
+            FROM bitacora_uso WHERE evento = 'LOGIN'
+            GROUP BY computer_id ORDER BY total DESC LIMIT 10
+        """)
+        top_pcs = [{'pc': r[0], 'total': r[1]} for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT sort1, COUNT(*) as total FROM alumnos
+            GROUP BY sort1 ORDER BY total DESC LIMIT 10
+        """)
+        dist_carreras = [{'carrera': r[0], 'total': r[1]} for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT b.computer_id, a.firstname, a.surname, b.matricula, b.evento, b.timestamp
+            FROM bitacora_uso b
+            LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            ORDER BY b.timestamp DESC LIMIT 15
+        """)
+        recientes = []
+        for r in cursor.fetchall():
+            recientes.append({
+                'pc': r[0],
+                'nombre': f"{r[1] or ''} {r[2] or ''}".strip() or 'Desconocido',
+                'matricula': r[3],
+                'evento': r[4],
+                'timestamp': r[5].strftime('%d/%m/%Y %H:%M') if r[5] else ''
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'total_alumnos': total_alumnos,
+            'logins_hoy': logins_hoy,
+            'logins_semana': logins_semana,
+            'logins_mes': logins_mes,
+            'top_carreras_uso': top_carreras_uso,
+            'top_pcs': top_pcs,
+            'dist_carreras': dist_carreras,
+            'recientes': recientes
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 ##############################################/app-run/################################################################
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)
