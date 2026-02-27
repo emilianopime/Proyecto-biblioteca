@@ -739,10 +739,16 @@
                     </div>
                 </div>
 
-                <!-- Distribución del padrón por carrera -->
-                <div class="panel">
-                    <div class="panel-title">Top 10 carreras en el padrón</div>
-                    <div id="st-dist-carreras"><div class="empty-msg">Cargando...</div></div>
+                <!-- Distribución del padrón + uso real por carrera -->
+                <div class="stats-two-col">
+                    <div class="panel">
+                        <div class="panel-title">Top 10 carreras en la base de datos</div>
+                        <div id="st-dist-carreras"><div class="empty-msg">Cargando...</div></div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-title">Top 10 carreras que mas usan las compus</div>
+                        <div id="st-top-carreras-uso"><div class="empty-msg">Cargando...</div></div>
+                    </div>
                 </div>
 
             </div><!-- /view-stats -->
@@ -826,6 +832,20 @@
                             var pct = Math.round((c.total / maxCar) * 100);
                             return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
                                 '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                                '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
+                        }).join('');
+                    }
+
+                    /* Top carreras por uso real */
+                    var usoEl = document.getElementById('st-top-carreras-uso');
+                    if (!d.top_carreras_uso.length) {
+                        usoEl.innerHTML = '<div class="empty-msg">Sin datos de uso aún.</div>';
+                    } else {
+                        var maxUso = d.top_carreras_uso[0].total;
+                        usoEl.innerHTML = d.top_carreras_uso.map(function(c) {
+                            var pct = Math.round((c.total / maxUso) * 100);
+                            return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
+                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#a855f7"></div></div>' +
                                 '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
                         }).join('');
                     }
