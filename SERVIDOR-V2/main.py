@@ -180,7 +180,58 @@ def check_computers_status():
         time.sleep(5)
 
 
+# ---------------------------------------------------------------------------
+# Persistencia de computadoras en PostgreSQL
+# ---------------------------------------------------------------------------
+
+def crear_tabla_computadoras():
+    """Crea la tabla computadoras en PostgreSQL si no existe."""
+    try:
+        conn   = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS computadoras (
+                id             TEXT PRIMARY KEY,
+                name           TEXT,
+                ip             TEXT,
+                last_heartbeat TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Advertencia: no se pudo crear la tabla computadoras: {e}")
+
+
+def cargar_computadoras_conocidas():
+    """
+    Al arrancar el servidor, carga todas las computadoras previamente
+    conocidas desde la base de datos. Se marcan como 'offline' hasta
+    que vuelvan a enviar un heartbeat.
+    """
+    try:
+        conn   = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, ip, last_heartbeat FROM computadoras")
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        for row in rows:
+            c_id, name, ip, last_hb = row
+            comp                = Computer(c_id, name, ip, {})
+            comp.last_heartbeat = last_hb if last_hb else datetime.now()
+            comp.status         = "offline"
+            computers[c_id]     = comp
+        if rows:
+            print(f"Computadoras cargadas desde DB: {len(rows)}")
+    except Exception as e:
+        print(f"Advertencia: no se pudo cargar computadoras desde DB: {e}")
+
+
 # Iniciar el hilo de monitoreo como daemon para que se detenga al cerrar el servidor
+crear_tabla_computadoras()
+cargar_computadoras_conocidas()
 threading.Thread(target=check_computers_status, daemon=True).start()
 
 
@@ -287,6 +338,15 @@ def delete_computer(computer_id):
     """
     if computer_id in computers:
         del computers[computer_id]
+        try:
+            conn   = psycopg2.connect(**DB_CONFIG)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM computadoras WHERE id = %s", (computer_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"Advertencia: no se pudo eliminar computadora de DB: {e}")
         return jsonify({"status": "success"})
     return jsonify({"error": "No encontrado"}), 404
 
@@ -426,6 +486,24 @@ def heartbeat():
         )
     else:
         computers[c_id].update_heartbeat(data.get("info"))
+
+    # Persistir en DB para sobrevivir reinicios del servidor
+    try:
+        conn   = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO computadoras (id, name, ip, last_heartbeat)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (id) DO UPDATE
+                SET name           = EXCLUDED.name,
+                    ip             = EXCLUDED.ip,
+                    last_heartbeat = NOW()
+        """, (c_id, computers[c_id].name, computers[c_id].ip))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Advertencia: no se pudo persistir heartbeat en DB: {e}")
 
     return jsonify({"status": "success"})
 

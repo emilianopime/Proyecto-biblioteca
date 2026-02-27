@@ -3,731 +3,493 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UACH - Dashboard de Control</title>
+    <title>UACH — Control de Laboratorio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        *, *::before, *::after { box-sizing: border-box; }
+        /* ── Variables ─────────────────────────────────────── */
+        :root {
+            --bg:          #040e1c;
+            --surface:     #071829;
+            --surface-2:   #0b2040;
+            --border:      #122e50;
+            --border-dim:  #0c2038;
+            --accent:      #22d3ee;
+            --accent-dim:  rgba(34,211,238,.08);
+            --success:     #10b981;
+            --success-dim: rgba(16,185,129,.1);
+            --danger:      #f43f5e;
+            --danger-dim:  rgba(244,63,94,.1);
+            --indigo:      #6366f1;
+            --emerald:     #10b981;
+            --text:        #ddeeff;
+            --text-2:      #7a98b8;
+            --text-3:      #324f6a;
+            --font:        'IBM Plex Sans', system-ui, sans-serif;
+            --mono:        'IBM Plex Mono', monospace;
+            --r:           5px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            background: #0f172a;
-            color: #e2e8f0;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            margin: 0;
-            padding: 0;
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
         }
 
-        /* =============================================
-           TOPBAR
-           ============================================= */
+        /* subtle dot-grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(var(--border-dim) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── Topbar ────────────────────────────────────────── */
         .topbar {
-            background: #1e293b;
-            border-bottom: 1px solid #334155;
-            padding: 0 20px;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             position: sticky;
             top: 0;
             z-index: 200;
-        }
-
-        .topbar-left {
+            height: 52px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
+            padding: 0 20px;
+            /* cyan accent line at top edge */
+            box-shadow: inset 0 2px 0 0 var(--accent);
         }
 
-        /* Botón hamburguesa */
-        .sidebar-toggle-btn {
-            background: none;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            color: #94a3b8;
-            cursor: pointer;
-            width: 34px;
-            height: 34px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1em;
+        .topbar-left { display: flex; align-items: center; gap: 14px; }
+
+        .btn-toggle {
+            width: 32px; height: 32px;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 5px;
+            background: none; border: 1px solid var(--border);
+            border-radius: var(--r); cursor: pointer; color: var(--text-2);
+            transition: border-color .15s, color .15s;
+        }
+        .btn-toggle:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-toggle span {
+            display: block; height: 1.5px; background: currentColor;
+            border-radius: 2px; transition: width .2s;
+        }
+        .btn-toggle span:nth-child(1) { width: 14px; }
+        .btn-toggle span:nth-child(2) { width: 10px; }
+        .btn-toggle span:nth-child(3) { width: 14px; }
+
+        .brand { display: flex; align-items: center; gap: 10px; user-select: none; }
+        .brand-mark {
+            width: 30px; height: 30px;
+            border: 1.5px solid var(--accent); border-radius: var(--r);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent); flex-shrink: 0;
+        }
+        .brand-name { font-size: .88em; font-weight: 600; color: var(--text); letter-spacing: .2px; line-height: 1.2; }
+        .brand-sub  { font-size: .6em;  color: var(--text-3); letter-spacing: .7px; text-transform: uppercase; }
+
+        .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+        .user-chip { display: flex; align-items: center; gap: 8px; font-size: .75em; color: var(--text-2); }
+        .online-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--success); box-shadow: 0 0 6px var(--success);
             flex-shrink: 0;
         }
-        .sidebar-toggle-btn:hover { background: #334155; color: #e2e8f0; }
-
-        .topbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .topbar-brand-icon { font-size: 1.5em; line-height: 1; }
-        .topbar-brand-text .title {
-            font-size: 1em;
-            font-weight: 700;
-            color: #f1f5f9;
-            line-height: 1.2;
-        }
-        .topbar-brand-text .subtitle { font-size: 0.7em; color: #64748b; }
-
-        .topbar-tag {
-            background: #1d4ed8;
-            color: #bfdbfe;
-            font-size: 0.7em;
-            font-weight: 700;
-            letter-spacing: 1px;
-            padding: 4px 12px;
-            border-radius: 20px;
-            text-transform: uppercase;
-        }
-
-        /* Seccion derecha del topbar: usuario + boton de logout */
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .topbar-user {
-            font-size: 0.78em;
-            color: #64748b;
-        }
-
-        .topbar-user span {
-            color: #94a3b8;
-            font-weight: 600;
-        }
+        .user-chip strong { color: var(--text); font-weight: 500; }
 
         .btn-logout {
-            background: none;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            color: #64748b;
-            font-size: 0.75em;
-            font-weight: 600;
-            font-family: inherit;
-            padding: 5px 12px;
-            cursor: pointer;
+            height: 28px; padding: 0 12px;
+            background: none; border: 1px solid var(--border); border-radius: var(--r);
+            color: var(--text-3); font-size: .7em; font-weight: 600; font-family: var(--font);
+            letter-spacing: .6px; text-transform: uppercase; cursor: pointer;
+            transition: border-color .15s, color .15s;
         }
+        .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
 
-        .btn-logout:hover {
-            border-color: #ef4444;
-            color: #f87171;
-            background: #2d1515;
-        }
-
-        /* =============================================
-           LAYOUT: sidebar + contenido
-           ============================================= */
+        /* ── Layout ────────────────────────────────────────── */
         .app-body {
             display: flex;
-            height: calc(100vh - 56px);
+            height: calc(100vh - 52px);
+            position: relative;
+            z-index: 1;
         }
 
-        /* =============================================
-           SIDEBAR
-           ============================================= */
+        /* ── Sidebar ───────────────────────────────────────── */
         .sidebar {
-            width: 220px;
-            background: #1e293b;
-            border-right: 1px solid #334155;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            overflow: hidden;
+            width: 216px; background: var(--surface);
+            border-right: 1px solid var(--border);
+            flex-shrink: 0; overflow: hidden;
+            display: flex; flex-direction: column;
+            transition: width .2s ease;
         }
-
-        /* Estado colapsado: solo iconos */
         .sidebar.collapsed { width: 52px; }
 
-        .nav-section-label {
-            font-size: 0.65em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: #475569;
-            padding: 18px 16px 6px;
-            white-space: nowrap;
-            overflow: hidden;
+        .nav-section {
+            font-size: .58em; font-weight: 700; letter-spacing: 1.6px;
+            text-transform: uppercase; color: var(--text-3);
+            padding: 18px 16px 6px; white-space: nowrap; overflow: hidden;
+            transition: opacity .15s;
         }
-        .sidebar.collapsed .nav-section-label { opacity: 0; height: 0; padding: 0; }
+        .sidebar.collapsed .nav-section { opacity: 0; height: 0; padding: 0; }
 
-        /* Separador entre secciones de nav */
-        .nav-divider {
-            height: 1px;
-            background: #334155;
-            margin: 8px 12px;
-        }
-        .sidebar.collapsed .nav-divider { margin: 8px 6px; }
+        .nav-divider { height: 1px; background: var(--border-dim); margin: 6px 10px; }
 
-        /* Ítem de navegación */
         .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            cursor: pointer;
-            border-radius: 7px;
-            margin: 2px 6px;
-            color: #94a3b8;
-            white-space: nowrap;
-            position: relative;
+            position: relative; display: flex; align-items: center; gap: 10px;
+            padding: 9px 14px; margin: 1px 6px; border-radius: var(--r);
+            color: var(--text-2); cursor: pointer; white-space: nowrap;
+            transition: background .15s, color .15s;
         }
-        .nav-item:hover { background: #334155; color: #e2e8f0; }
-
-        .nav-item.active {
-            background: #1d4ed8;
-            color: #eff6ff;
+        .nav-item:hover { background: var(--surface-2); color: var(--text); }
+        .nav-item.active { background: var(--accent-dim); color: var(--accent); }
+        .nav-item.active::before {
+            content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+            width: 2px; background: var(--accent); border-radius: 2px;
         }
-        .nav-item.active .nav-icon { color: #bfdbfe; }
 
-        /* Deshabilitado (para estadísticas, aún no implementadas) */
-        .nav-item.disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .nav-item.disabled:hover { background: none; color: #94a3b8; }
-
-        .nav-icon { font-size: 1.2em; flex-shrink: 0; width: 24px; text-align: center; }
-
-        .nav-label { font-size: 0.85em; font-weight: 600; overflow: hidden; }
+        .nav-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .nav-label { font-size: .82em; font-weight: 500; }
         .sidebar.collapsed .nav-label { display: none; }
 
-        /* Badge "Pronto" */
-        .nav-badge {
-            margin-left: auto;
-            font-size: 0.6em;
-            font-weight: 700;
-            background: #334155;
-            color: #64748b;
-            padding: 2px 7px;
-            border-radius: 10px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            white-space: nowrap;
-        }
-        .sidebar.collapsed .nav-badge { display: none; }
-
-        /* Tooltip cuando está colapsado */
-        .nav-item .nav-tooltip {
-            display: none;
-            position: absolute;
-            left: 54px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #334155;
-            color: #e2e8f0;
-            font-size: 0.78em;
-            font-weight: 600;
-            padding: 5px 10px;
-            border-radius: 6px;
-            white-space: nowrap;
-            z-index: 300;
-            pointer-events: none;
-            border: 1px solid #475569;
+        .nav-tooltip {
+            display: none; position: absolute; left: 52px; top: 50%; transform: translateY(-50%);
+            background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+            font-size: .75em; padding: 5px 10px; border-radius: var(--r);
+            white-space: nowrap; z-index: 300; pointer-events: none;
         }
         .sidebar.collapsed .nav-item:hover .nav-tooltip { display: block; }
 
-        /* =============================================
-           ÁREA DE CONTENIDO
-           ============================================= */
-        .content-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 22px 22px 40px;
-        }
-
-        /* Vista: oculta por defecto, visible con .active */
+        /* ── Content ───────────────────────────────────────── */
+        .content-area { flex: 1; overflow-y: auto; padding: 22px 24px 40px; }
         .view { display: none; }
         .view.active { display: block; }
 
-        /* =============================================
-           PANEL GENÉRICO
-           ============================================= */
+        /* ── Page header ───────────────────────────────────── */
+        .page-header { margin-bottom: 18px; }
+        .page-header h1 { font-size: 1.1em; font-weight: 600; color: var(--text); letter-spacing: .1px; }
+        .page-header p  { font-size: .75em; color: var(--text-3); margin-top: 3px; }
+
+        /* ── Panel ─────────────────────────────────────────── */
         .panel {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 20px 22px;
-            margin-bottom: 18px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 18px 20px; margin-bottom: 16px;
         }
-
         .panel-title {
-            font-size: 0.75em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: #64748b;
-            margin: 0 0 14px 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            font-size: .64em; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1.3px; color: var(--text-3); margin-bottom: 14px;
+            display: flex; align-items: center; gap: 10px;
         }
-        .panel-title::before {
-            content: '';
-            display: inline-block;
-            width: 3px;
-            height: 13px;
-            background: #3b82f6;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
+        .panel-title::after { content: ''; flex: 1; height: 1px; background: var(--border-dim); }
 
-        /* =============================================
-           CARGA CSV
-           ============================================= */
-        .upload-row {
-            display: flex;
-            align-items: stretch;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        #tableName {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 7px;
-            color: #e2e8f0;
-            padding: 10px 14px;
-            font-size: 0.88em;
-            width: 210px;
-            outline: none;
-            font-family: inherit;
-        }
-        #tableName::placeholder { color: #475569; }
-        #tableName:focus { border-color: #3b82f6; }
+        /* ── Upload ────────────────────────────────────────── */
+        .upload-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        #tableName  { display: none; }
 
         #drop-zone {
-            flex: 1;
-            min-width: 180px;
-            border: 2px dashed #334155;
-            border-radius: 7px;
-            padding: 10px 18px;
-            color: #475569;
-            text-align: center;
-            cursor: pointer;
-            font-size: 0.88em;
-            font-weight: 600;
-            background: #0f172a;
+            flex: 1; min-width: 200px;
+            border: 1.5px dashed var(--border); border-radius: var(--r);
+            padding: 14px 20px; background: var(--bg);
+            color: var(--text-3); text-align: center; cursor: pointer;
+            font-size: .82em; font-weight: 500;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: border-color .15s, color .15s, background .15s;
         }
         #drop-zone:hover, #drop-zone.hover {
-            border-color: #3b82f6;
-            color: #93c5fd;
-            background: #111c2d;
+            border-color: var(--accent); color: var(--accent); background: var(--accent-dim);
         }
+        #upload-msg { margin-top: 10px; font-size: .78em; color: var(--text-2); min-height: 16px; font-family: var(--mono); }
 
-        #upload-msg {
-            margin-top: 10px;
-            font-size: 0.83em;
-            min-height: 16px;
-            color: #94a3b8;
+        /* ── Quick stats (monitoring) ──────────────────────── */
+        .quick-stats {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 12px; margin-bottom: 16px;
         }
+        .qs-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px 18px;
+            border-left: 2px solid var(--border);
+        }
+        .qs-card.total  { border-left-color: var(--accent); }
+        .qs-card.online { border-left-color: var(--success); }
+        .qs-card.offline{ border-left-color: var(--danger); }
 
-        /* =============================================
-           ESTADÍSTICAS RÁPIDAS (cards en vista monitoreo)
-           ============================================= */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-bottom: 18px;
-        }
+        .qs-label { font-size: .62em; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-3); margin-bottom: 6px; }
+        .qs-value { font-family: var(--mono); font-size: 2em; font-weight: 600; color: var(--text); line-height: 1; }
+        .qs-card.online  .qs-value { color: var(--success); }
+        .qs-card.offline .qs-value { color: var(--danger); }
 
-        .stat-card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 16px 18px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
+        /* ── Section head ──────────────────────────────────── */
+        .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .section-head h2 { font-size: .64em; font-weight: 700; text-transform: uppercase; letter-spacing: 1.3px; color: var(--text-3); white-space: nowrap; }
+        .section-head .line { flex: 1; height: 1px; background: var(--border-dim); }
 
-        .stat-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.4em;
-            flex-shrink: 0;
-        }
-        .stat-icon.total   { background: #1e3a5f; }
-        .stat-icon.online  { background: #14532d; }
-        .stat-icon.offline { background: #450a0a; }
-
-        .stat-info { display: flex; flex-direction: column; }
-        .stat-label {
-            font-size: 0.72em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: #64748b;
-        }
-        .stat-value {
-            font-size: 1.9em;
-            font-weight: 700;
-            line-height: 1.1;
-            color: #f1f5f9;
-        }
-        .stat-card.s-online  .stat-value { color: #4ade80; }
-        .stat-card.s-offline .stat-value { color: #f87171; }
-
-        /* =============================================
-           SECCIÓN EQUIPOS
-           ============================================= */
-        .section-title {
-            font-size: 0.75em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: #64748b;
-            margin: 0 0 14px 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .section-title::before {
-            content: '';
-            display: inline-block;
-            width: 3px;
-            height: 13px;
-            background: #3b82f6;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-
+        /* ── Computer cards ────────────────────────────────── */
         .computers-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-            gap: 14px;
-        }
-
-        /* =============================================
-           TARJETAS DE COMPUTADORAS (generadas por JS)
-           ============================================= */
-        .computer-card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-top: 4px solid #22c55e;
-            border-radius: 10px;
-            padding: 16px 18px;
-            display: flex;
-            flex-direction: column;
-        }
-        .computer-card.offline { border-top-color: #ef4444; opacity: 0.78; }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 10px;
-            margin-bottom: 8px;
-            border-bottom: 1px solid #334155;
-        }
-        .card-header h3 { margin: 0; font-size: 0.97em; font-weight: 600; color: #f1f5f9; }
-
-        .status-badge {
-            padding: 3px 9px;
-            border-radius: 20px;
-            font-size: 0.68em;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-        .status-badge.online  { background: #14532d; color: #86efac; }
-        .status-badge.offline { background: #450a0a; color: #fca5a5; }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            font-size: 0.83em;
-            color: #64748b;
-            border-bottom: 1px solid #1a2744;
-        }
-        .info-row strong { color: #cbd5e1; font-weight: 500; }
-
-        .user-status {
-            margin-top: 12px;
-            padding: 10px 12px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 12px;
         }
-        .user-status.locked { background: #2d1515; border: 1px dashed #ef4444; }
-        .user-status.active { background: #0f2d1a; border: 1px solid #166534; }
-        .user-status .icon  { font-size: 1.4em; }
 
-        .locked-text { font-size: 0.88em; font-weight: 600; color: #f87171; }
-        .locked-text small { display: block; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+        .computer-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px;
+            display: flex; flex-direction: column;
+            border-left: 2px solid var(--success);
+            transition: transform .15s;
+        }
+        .computer-card:hover  { transform: translateY(-1px); }
+        .computer-card.offline { border-left-color: var(--danger); opacity: .72; }
 
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 10px; margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-dim);
+        }
+        .card-header h3 { font-size: .88em; font-weight: 600; color: var(--text); font-family: var(--mono); }
+
+        .status-badge {
+            display: flex; align-items: center; gap: 5px;
+            font-size: .64em; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+        }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .status-badge.online  { color: var(--success); }
+        .status-badge.online  .status-dot { background: var(--success); animation: pulse-dot 2s infinite; }
+        .status-badge.offline { color: var(--danger); }
+        .status-badge.offline .status-dot { background: var(--danger); }
+
+        @keyframes pulse-dot {
+            0%   { box-shadow: 0 0 0 0 rgba(16,185,129,.55); }
+            70%  { box-shadow: 0 0 0 5px rgba(16,185,129,0); }
+            100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+        }
+
+        .info-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px 0; font-size: .76em; color: var(--text-2);
+            border-bottom: 1px solid var(--border-dim);
+        }
+        .info-row:last-of-type { border-bottom: none; }
+        .info-row strong { font-family: var(--mono); font-weight: 500; color: var(--text); }
+
+        .user-status {
+            margin-top: 10px; padding: 9px 12px; border-radius: var(--r);
+            display: flex; align-items: center; gap: 10px; font-size: .8em;
+        }
+        .user-status.locked { background: var(--danger-dim);  border: 1px solid rgba(244,63,94,.18); }
+        .user-status.active { background: var(--success-dim); border: 1px solid rgba(16,185,129,.18); }
+        .user-status .status-icon { flex-shrink: 0; display: flex; }
+        .user-status.locked .status-icon { color: var(--danger); }
+        .user-status.active .status-icon { color: var(--success); }
+
+        .locked-text { font-weight: 600; color: var(--danger); }
+        .locked-text small { display: block; font-weight: 400; color: var(--text-2); margin-top: 1px; font-size: .9em; }
         .user-details { display: flex; flex-direction: column; }
-        .user-name { font-size: 0.93em; font-weight: 600; color: #4ade80; }
-        .user-mat  { font-size: 0.78em; color: #86efac; margin-top: 2px; }
+        .user-name { font-weight: 600; color: var(--success); }
+        .user-mat  { font-size: .85em; color: var(--text-2); margin-top: 1px; font-family: var(--mono); }
 
         .btn-delete {
-            margin-top: 14px;
-            width: 100%;
-            padding: 8px;
-            background: transparent;
-            border: 1px solid #334155;
-            color: #64748b;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.78em;
-            font-weight: 600;
-            font-family: inherit;
+            margin-top: 12px; width: 100%; padding: 7px;
+            background: transparent; border: 1px solid var(--border); color: var(--text-3);
+            border-radius: var(--r); cursor: pointer; font-size: .72em; font-weight: 600;
+            font-family: var(--font); letter-spacing: .5px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: border-color .15s, color .15s;
         }
-        .btn-delete:hover { border-color: #ef4444; color: #f87171; background: #2d1515; }
+        .btn-delete:hover { border-color: var(--danger); color: var(--danger); }
 
-        /* =============================================
-           VISTA ESTADÍSTICAS
-           ============================================= */
-
-        /* Grid de 4 cards resumen */
+        /* ── Stats view ────────────────────────────────────── */
         .stats-summary {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-            margin-bottom: 18px;
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 12px; margin-bottom: 16px;
         }
+        .sm-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 16px 18px;
+            border-left: 2px solid var(--accent);
+        }
+        .sm-card:nth-child(2) { border-left-color: #6366f1; }
+        .sm-card:nth-child(3) { border-left-color: #8b5cf6; }
+        .sm-card:nth-child(4) { border-left-color: #ec4899; }
+        .sm-label { font-size: .62em; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-3); margin-bottom: 6px; }
+        .sm-value { font-family: var(--mono); font-size: 1.85em; font-weight: 600; color: var(--text); line-height: 1; }
 
-        /* Dos columnas para paneles */
-        .stats-two-col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-bottom: 18px;
-        }
+        .stats-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 
-        /* Tabla de estadísticas */
-        .st-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.82em;
-        }
+        /* ── Table ─────────────────────────────────────────── */
+        .st-table { width: 100%; border-collapse: collapse; font-size: .78em; }
         .st-table th {
-            text-align: left;
-            color: #64748b;
-            font-size: 0.7em;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            padding: 6px 8px;
-            border-bottom: 1px solid #334155;
+            text-align: left; color: var(--text-3); font-size: .66em; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .8px; padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
         }
-        .st-table td {
-            padding: 8px 8px;
-            color: #cbd5e1;
-            border-bottom: 1px solid #1a2744;
-        }
+        .st-table td { padding: 7px 8px; color: var(--text-2); border-bottom: 1px solid var(--border-dim); }
         .st-table tr:last-child td { border-bottom: none; }
+        .st-table td.mono { font-family: var(--mono); font-size: .9em; color: var(--text); }
+        .st-table td.ts   { font-family: var(--mono); font-size: .82em; color: var(--text-3); }
 
-        /* Badges de eventos */
-        .badge-login  { background: #14532d; color: #86efac; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; }
-        .badge-logout { background: #450a0a; color: #fca5a5; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; }
+        .badge-login  { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: .7em; font-weight: 700; letter-spacing: .5px; background: var(--success-dim); color: var(--success); border: 1px solid rgba(16,185,129,.2); }
+        .badge-logout { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: .7em; font-weight: 700; letter-spacing: .5px; background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(244,63,94,.2); }
 
-        /* Barras CSS */
-        .bar-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 9px;
-            font-size: 0.82em;
-        }
-        .bar-label {
-            width: 260px;
-            flex-shrink: 0;
-            color: #94a3b8;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .bar-track {
-            flex: 1;
-            background: #0f172a;
-            border-radius: 3px;
-            height: 13px;
-            overflow: hidden;
-        }
-        .bar-fill {
-            height: 100%;
-            background: #3b82f6;
-            border-radius: 3px;
-            min-width: 2px;
-        }
-        .bar-count {
-            width: 54px;
-            text-align: right;
-            color: #64748b;
-            flex-shrink: 0;
-            font-weight: 600;
-        }
+        /* ── Bar charts ────────────────────────────────────── */
+        .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .78em; }
+        .bar-label { width: 200px; flex-shrink: 0; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bar-track { flex: 1; background: var(--bg); border-radius: 2px; height: 10px; overflow: hidden; border: 1px solid var(--border-dim); }
+        .bar-fill  { height: 100%; border-radius: 2px; min-width: 2px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+        .bar-count { width: 44px; text-align: right; color: var(--text-3); flex-shrink: 0; font-weight: 600; font-family: var(--mono); font-size: .88em; }
 
-        /* Estado vacío */
-        .empty-msg {
-            color: #475569;
-            font-size: 0.85em;
-            text-align: center;
-            padding: 24px 0;
-        }
+        .empty-msg { color: var(--text-3); font-size: .8em; text-align: center; padding: 24px 0; }
 
-        /* Responsive stats */
-        @media (max-width: 900px) {
-            .stats-summary { grid-template-columns: repeat(2, 1fr); }
-            .stats-two-col { grid-template-columns: 1fr; }
+        /* ── Responsive ────────────────────────────────────── */
+        @media (max-width: 960px) {
+            .stats-summary  { grid-template-columns: repeat(2, 1fr); }
+            .stats-two-col  { grid-template-columns: 1fr; }
         }
-
-        /* =============================================
-           RESPONSIVE
-           ============================================= */
         @media (max-width: 640px) {
-            .stats { grid-template-columns: 1fr; }
-            .upload-row { flex-direction: column; }
-            #tableName { width: 100%; }
+            .quick-stats { grid-template-columns: 1fr; }
             .sidebar { width: 52px; }
-            .sidebar .nav-label,
-            .sidebar .nav-badge,
-            .sidebar .nav-section-label { display: none; }
+            .sidebar .nav-label { display: none; }
         }
     </style>
 </head>
 <body>
 
-    <!-- ===================== TOPBAR ===================== -->
+    <!-- ══ TOPBAR ══════════════════════════════════════════ -->
     <header class="topbar">
         <div class="topbar-left">
-            <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Contraer / expandir menú">&#9776;</button>
-            <div class="topbar-brand">
-                <span class="topbar-brand-icon">🖥️</span>
-                <div class="topbar-brand-text">
-                    <div class="title">Control de Laboratorio</div>
-                    <div class="subtitle">Universidad Autónoma de Chihuahua</div>
+            <button class="btn-toggle" onclick="toggleSidebar()" title="Contraer / expandir menú">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="brand">
+                <div class="brand-mark">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                </div>
+                <div>
+                    <div class="brand-name">Control de Laboratorio</div>
+                    <div class="brand-sub">Universidad Autónoma de Chihuahua</div>
                 </div>
             </div>
         </div>
         <div class="topbar-right">
-            <span class="topbar-tag">UACH</span>
-            <span class="topbar-user">Sesion: <span>{{ username }}</span></span>
+            <div class="user-chip">
+                <span class="online-dot"></span>
+                Sesión: <strong>{{ username }}</strong>
+            </div>
             <form method="GET" action="/logout" style="margin:0;">
-                <button type="submit" class="btn-logout">Cerrar sesion</button>
+                <button type="submit" class="btn-logout">Cerrar sesión</button>
             </form>
         </div>
     </header>
 
-    <!-- ===================== LAYOUT ===================== -->
+    <!-- ══ LAYOUT ══════════════════════════════════════════ -->
     <div class="app-body">
 
-        <!-- ---- Sidebar izquierdo ---- -->
+        <!-- Sidebar -->
         <nav class="sidebar" id="sidebar">
+            <div class="nav-section">Módulos</div>
 
-            <div class="nav-section-label">Menú</div>
-
-            <!-- Carga de alumnos -->
-            <div class="nav-item active" id="nav-csv" onclick="setView('csv')" title="">
-                <span class="nav-icon">📂</span>
-                <span class="nav-label">Carga de alumnos</span>
-                <span class="nav-tooltip">Carga de alumnos</span>
+            <div class="nav-item active" id="nav-csv" onclick="setView('csv')">
+                <span class="nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                </span>
+                <span class="nav-label">Equipos</span>
+                <span class="nav-tooltip">Equipos</span>
             </div>
 
             <div class="nav-divider"></div>
 
-            <!-- Estadísticas -->
-            <div class="nav-item" id="nav-stats" onclick="setView('stats')" title="">
-                <span class="nav-icon">📊</span>
+            <div class="nav-item" id="nav-stats" onclick="setView('stats')">
+                <span class="nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                </span>
                 <span class="nav-label">Estadísticas</span>
                 <span class="nav-tooltip">Estadísticas</span>
             </div>
-
         </nav>
 
-        <!-- ---- Área de contenido ---- -->
+        <!-- Content -->
         <div class="content-area">
 
-            <!-- Vista: Monitoreo + carga CSV -->
+            <!-- ── Vista: Equipos ────────────────────────── -->
             <div class="view active" id="view-csv">
 
-                <!-- Panel CSV -->
+                <div class="page-header">
+                    <h1>Equipos del Laboratorio</h1>
+                    <p>Monitoreo en tiempo real del estado de cada nodo</p>
+                </div>
+
                 <div class="panel">
-                    <div class="panel-title">Carga de lista de alumnos (CSV)</div>
+                    <div class="panel-title">Carga de padrón de alumnos</div>
                     <div class="upload-row">
                         <input type="hidden" id="tableName" value="alumnos">
-                        <div id="drop-zone">📂 &nbsp; Arrastra el archivo CSV aquí, o haz clic para seleccionarlo</div>
+                        <div id="drop-zone">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Arrastra el archivo CSV aquí, o haz clic para seleccionarlo
+                        </div>
                         <input type="file" id="fileInput" hidden>
                     </div>
                     <div id="upload-msg"></div>
                 </div>
 
-                <!-- Resumen rápido -->
-                <div class="stats">
-                    <div class="stat-card">
-                        <div class="stat-icon total">🖥️</div>
-                        <div class="stat-info">
-                            <span class="stat-label">Total equipos</span>
-                            <span class="stat-value" id="total-computers">0</span>
-                        </div>
+                <div class="quick-stats">
+                    <div class="qs-card total">
+                        <div class="qs-label">Total equipos</div>
+                        <div class="qs-value" id="total-computers">0</div>
                     </div>
-                    <div class="stat-card s-online">
-                        <div class="stat-icon online">✅</div>
-                        <div class="stat-info">
-                            <span class="stat-label">En línea</span>
-                            <span class="stat-value" id="online-computers">0</span>
-                        </div>
+                    <div class="qs-card online">
+                        <div class="qs-label">En línea</div>
+                        <div class="qs-value" id="online-computers">0</div>
                     </div>
-                    <div class="stat-card s-offline">
-                        <div class="stat-icon offline">❌</div>
-                        <div class="stat-info">
-                            <span class="stat-label">Offline</span>
-                            <span class="stat-value" id="offline-computers">0</span>
-                        </div>
+                    <div class="qs-card offline">
+                        <div class="qs-label">Offline</div>
+                        <div class="qs-value" id="offline-computers">0</div>
                     </div>
                 </div>
 
-                <!-- Grid de equipos -->
-                <div class="section-title">Equipos del laboratorio</div>
+                <div class="section-head">
+                    <h2>Nodos activos</h2>
+                    <div class="line"></div>
+                </div>
                 <div id="computers-container" class="computers-grid"></div>
 
             </div><!-- /view-csv -->
 
-            <!-- Vista: Estadísticas -->
+            <!-- ── Vista: Estadísticas ───────────────────── -->
             <div class="view" id="view-stats">
 
-                <!-- Cards resumen -->
+                <div class="page-header">
+                    <h1>Estadísticas de Uso</h1>
+                    <p>Actividad del laboratorio registrada en base de datos</p>
+                </div>
+
                 <div class="stats-summary">
-                    <div class="stat-card">
-                        <div class="stat-icon total">📋</div>
-                        <div class="stat-info">
-                            <span class="stat-label">Alumnos registrados</span>
-                            <span class="stat-value" id="st-total-alumnos">—</span>
-                        </div>
+                    <div class="sm-card">
+                        <div class="sm-label">Alumnos registrados</div>
+                        <div class="sm-value" id="st-total-alumnos">—</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background:#1e3a5f">📅</div>
-                        <div class="stat-info">
-                            <span class="stat-label">Logins hoy</span>
-                            <span class="stat-value" id="st-logins-hoy">—</span>
-                        </div>
+                    <div class="sm-card">
+                        <div class="sm-label">Logins hoy</div>
+                        <div class="sm-value" id="st-logins-hoy">—</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background:#1e3a5f">📆</div>
-                        <div class="stat-info">
-                            <span class="stat-label">Esta semana</span>
-                            <span class="stat-value" id="st-logins-semana">—</span>
-                        </div>
+                    <div class="sm-card">
+                        <div class="sm-label">Esta semana</div>
+                        <div class="sm-value" id="st-logins-semana">—</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="background:#1e3a5f">🗓️</div>
-                        <div class="stat-info">
-                            <span class="stat-label">Este mes</span>
-                            <span class="stat-value" id="st-logins-mes">—</span>
-                        </div>
+                    <div class="sm-card">
+                        <div class="sm-label">Este mes</div>
+                        <div class="sm-value" id="st-logins-mes">—</div>
                     </div>
                 </div>
 
-                <!-- Actividad reciente + Top PCs -->
                 <div class="stats-two-col">
                     <div class="panel">
                         <div class="panel-title">Actividad reciente</div>
@@ -739,14 +501,13 @@
                     </div>
                 </div>
 
-                <!-- Distribución del padrón + uso real por carrera -->
                 <div class="stats-two-col">
                     <div class="panel">
                         <div class="panel-title">Top 10 carreras en la base de datos</div>
                         <div id="st-dist-carreras"><div class="empty-msg">Cargando...</div></div>
                     </div>
                     <div class="panel">
-                        <div class="panel-title">Top 10 carreras que mas usan las compus</div>
+                        <div class="panel-title">Top 10 carreras que más usan las compus</div>
                         <div id="st-top-carreras-uso"><div class="empty-msg">Cargando...</div></div>
                     </div>
                 </div>
@@ -754,17 +515,14 @@
             </div><!-- /view-stats -->
 
         </div><!-- /content-area -->
-
     </div><!-- /app-body -->
 
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script>
-        /* ---- Sidebar toggle ---- */
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('collapsed');
         }
 
-        /* ---- Cambio de vista ---- */
         var statsInterval = null;
 
         function setView(name) {
@@ -772,7 +530,7 @@
             document.querySelectorAll('.nav-item').forEach(function(i) { i.classList.remove('active'); });
             document.getElementById('view-' + name).classList.add('active');
             var navEl = document.getElementById('nav-' + name);
-            if (navEl && !navEl.classList.contains('disabled')) { navEl.classList.add('active'); }
+            if (navEl) navEl.classList.add('active');
 
             if (name === 'stats') {
                 loadStats();
@@ -782,30 +540,32 @@
             }
         }
 
-        /* ---- Estadísticas ---- */
         function loadStats() {
             fetch('/api/stats')
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
-                    if (d.error) { console.error('Stats error:', d.error); return; }
+                    if (d.error) return;
 
                     document.getElementById('st-total-alumnos').textContent = d.total_alumnos.toLocaleString('es-MX');
-                    document.getElementById('st-logins-hoy').textContent    = d.logins_hoy;
-                    document.getElementById('st-logins-semana').textContent = d.logins_semana;
-                    document.getElementById('st-logins-mes').textContent    = d.logins_mes;
+                    document.getElementById('st-logins-hoy').textContent     = d.logins_hoy;
+                    document.getElementById('st-logins-semana').textContent  = d.logins_semana;
+                    document.getElementById('st-logins-mes').textContent     = d.logins_mes;
 
                     /* Actividad reciente */
                     var recEl = document.getElementById('st-recientes');
                     if (!d.recientes.length) {
                         recEl.innerHTML = '<div class="empty-msg">Sin actividad registrada aún.</div>';
                     } else {
-                        recEl.innerHTML = '<table class="st-table"><thead><tr><th>PC</th><th>Alumno</th><th>Evento</th><th>Fecha</th></tr></thead><tbody>' +
+                        recEl.innerHTML =
+                            '<table class="st-table"><thead><tr><th>PC</th><th>Alumno</th><th>Evento</th><th>Fecha</th></tr></thead><tbody>' +
                             d.recientes.map(function(r) {
                                 var badge = r.evento === 'LOGIN'
                                     ? '<span class="badge-login">LOGIN</span>'
-                                    : '<span class="badge-logout">LOGOUT</span>';
-                                return '<tr><td>' + r.pc + '</td><td>' + r.nombre + '</td><td>' + badge + '</td><td>' + r.timestamp + '</td></tr>';
-                            }).join('') + '</tbody></table>';
+                                    : '<span class="badge-logout">' + r.evento + '</span>';
+                                return '<tr><td class="mono">' + r.pc + '</td><td>' + r.nombre +
+                                    '</td><td>' + badge + '</td><td class="ts">' + r.timestamp + '</td></tr>';
+                            }).join('') +
+                            '</tbody></table>';
                     }
 
                     /* Top PCs */
@@ -817,7 +577,7 @@
                         pcsEl.innerHTML = d.top_pcs.map(function(p) {
                             var pct = Math.round((p.total / maxPc) * 100);
                             return '<div class="bar-row"><span class="bar-label">' + p.pc + '</span>' +
-                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#22d3ee"></div></div>' +
                                 '<span class="bar-count">' + p.total + '</span></div>';
                         }).join('');
                     }
@@ -831,7 +591,7 @@
                         carEl.innerHTML = d.dist_carreras.map(function(c) {
                             var pct = Math.round((c.total / maxCar) * 100);
                             return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
-                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#6366f1"></div></div>' +
                                 '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
                         }).join('');
                     }
@@ -845,7 +605,7 @@
                         usoEl.innerHTML = d.top_carreras_uso.map(function(c) {
                             var pct = Math.round((c.total / maxUso) * 100);
                             return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
-                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#a855f7"></div></div>' +
+                                '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#10b981"></div></div>' +
                                 '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
                         }).join('');
                     }
