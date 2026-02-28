@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: postgres-biblioteca
+    restart: always
+    environment:
+      POSTGRES_DB: basedatosuach
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Esta línea es la magia: monta tu script en la carpeta de inicialización
+      - ./db_init:/docker-entrypoint-initdb.d
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flask-servidor
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_SECRET_KEY=tu_clave_secreta_generada
+      - DASHBOARD_USER=admin
+      - DASHBOARD_PASSWORD=1234
+      - DB_HOST=db
+      - DB_NAME=basedatosuach
+      - DB_USER=postgres
+      - DB_PASSWORD=1234
+      - DB_PORT=5432
+
+volumes:
+  pgdata:
