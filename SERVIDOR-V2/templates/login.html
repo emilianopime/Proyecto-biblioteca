@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UACH - Iniciar sesion</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+
+    <div class="login-wrapper">
+        <div class="login-header">
+            <span class="brand-icon">🖥️</span>
+            <div class="brand-title">Control de Laboratorio</div>
+            <div class="brand-subtitle">Universidad Autonoma de Chihuahua</div>
+        </div>
+
+        <div class="login-card">
+            <h2>Acceso administrativo</h2>
+
+            {% if error %}
+                <div class="error-msg">{{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="/login">
+                <div class="field">
+                    <label for="username">Usuario</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Ingresa tu usuario"
+                        autocomplete="username"
+                        autofocus
+                        required
+                    >
+                </div>
+
+                <div class="field">
+                    <label for="password">Contrasena</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Ingresa tu contrasena"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn-login">Iniciar sesion</button>
+            </form>
+        </div>
+
+        <div class="login-footer">UACH &mdash; Sistema de monitoreo de laboratorio</div>
+    </div>
+
+</body>
+</html>
