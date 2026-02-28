@@ -323,7 +323,10 @@
         .sm-label { font-size: .62em; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-3); margin-bottom: 6px; }
         .sm-value { font-family: var(--mono); font-size: 1.85em; font-weight: 600; color: var(--text); line-height: 1; }
 
-        .stats-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .stats-two-col   { display: grid; grid-template-columns: 1fr 1fr;       gap: 16px; margin-bottom: 16px; }
+
+        /* Cuadrícula de 3 columnas para los paneles de barras compactos */
+        .stats-three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
 
         /* ── Table ─────────────────────────────────────────── */
         .st-table { width: 100%; border-collapse: collapse; font-size: .78em; }
@@ -339,6 +342,8 @@
 
         .badge-login  { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: .7em; font-weight: 700; letter-spacing: .5px; background: var(--success-dim); color: var(--success); border: 1px solid rgba(16,185,129,.2); }
         .badge-logout { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: .7em; font-weight: 700; letter-spacing: .5px; background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(244,63,94,.2); }
+        /* Etiqueta de sesión activa — misma forma visual que badge-login */
+        .badge-en-uso { display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: .7em; font-weight: 700; letter-spacing: .5px; background: var(--success-dim); color: var(--success); border: 1px solid rgba(16,185,129,.2); }
 
         /* ── Bar charts ────────────────────────────────────── */
         .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .78em; }
@@ -347,15 +352,23 @@
         .bar-fill  { height: 100%; border-radius: 2px; min-width: 2px; transition: width .5s cubic-bezier(.4,0,.2,1); }
         .bar-count { width: 44px; text-align: right; color: var(--text-3); flex-shrink: 0; font-weight: 600; font-family: var(--mono); font-size: .88em; }
 
+        /* Variante compacta para paneles de 3 columnas */
+        .stats-three-col .bar-row   { font-size: .74em; margin-bottom: 6px; }
+        .stats-three-col .bar-label { width: 110px; }
+        .stats-three-col .bar-track { height: 7px; }
+        .stats-three-col .bar-count { width: 36px; font-size: .84em; }
+
         .empty-msg { color: var(--text-3); font-size: .8em; text-align: center; padding: 24px 0; }
 
         /* ── Responsive ────────────────────────────────────── */
         @media (max-width: 960px) {
-            .stats-summary  { grid-template-columns: repeat(2, 1fr); }
-            .stats-two-col  { grid-template-columns: 1fr; }
+            .stats-summary   { grid-template-columns: repeat(2, 1fr); }
+            .stats-two-col   { grid-template-columns: 1fr; }
+            .stats-three-col { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 640px) {
-            .quick-stats { grid-template-columns: 1fr; }
+            .quick-stats     { grid-template-columns: 1fr; }
+            .stats-three-col { grid-template-columns: 1fr; }
             .sidebar { width: 52px; }
             .sidebar .nav-label { display: none; }
         }
@@ -428,7 +441,7 @@
                 </div>
 
                 <div class="panel">
-                    <div class="panel-title">Carga de padrón de alumnos</div>
+                    <div class="panel-title">Carga de base de datos de alumnos</div>
                     <div class="upload-row">
                         <input type="hidden" id="tableName" value="alumnos">
                         <div id="drop-zone">
@@ -490,24 +503,24 @@
                     </div>
                 </div>
 
-                <div class="stats-two-col">
-                    <div class="panel">
-                        <div class="panel-title">Actividad reciente</div>
-                        <div id="st-recientes"><div class="empty-msg">Cargando...</div></div>
-                    </div>
+                <!-- Actividad reciente — ocupa el ancho completo -->
+                <div class="panel" style="margin-bottom:16px;">
+                    <div class="panel-title">Actividad reciente</div>
+                    <div id="st-recientes"><div class="empty-msg">Cargando...</div></div>
+                </div>
+
+                <!-- Tres paneles de barras compactos en una sola fila -->
+                <div class="stats-three-col">
                     <div class="panel">
                         <div class="panel-title">PCs más activas</div>
                         <div id="st-top-pcs"><div class="empty-msg">Cargando...</div></div>
                     </div>
-                </div>
-
-                <div class="stats-two-col">
                     <div class="panel">
-                        <div class="panel-title">Top 10 carreras en la base de datos</div>
+                        <div class="panel-title">Top carreras base de datos</div>
                         <div id="st-dist-carreras"><div class="empty-msg">Cargando...</div></div>
                     </div>
                     <div class="panel">
-                        <div class="panel-title">Top 10 carreras que más usan las compus</div>
+                        <div class="panel-title">Top carreras — uso real</div>
                         <div id="st-top-carreras-uso"><div class="empty-msg">Cargando...</div></div>
                     </div>
                 </div>
@@ -551,21 +564,34 @@
                     document.getElementById('st-logins-semana').textContent  = d.logins_semana;
                     document.getElementById('st-logins-mes').textContent     = d.logins_mes;
 
-                    /* Actividad reciente */
+                    /* Actividad reciente — una fila por sesión (LOGIN + su LOGOUT si existe) */
                     var recEl = document.getElementById('st-recientes');
                     if (!d.recientes.length) {
                         recEl.innerHTML = '<div class="empty-msg">Sin actividad registrada aún.</div>';
                     } else {
-                        recEl.innerHTML =
-                            '<table class="st-table"><thead><tr><th>PC</th><th>Alumno</th><th>Evento</th><th>Fecha</th></tr></thead><tbody>' +
-                            d.recientes.map(function(r) {
-                                var badge = r.evento === 'LOGIN'
-                                    ? '<span class="badge-login">LOGIN</span>'
-                                    : '<span class="badge-logout">' + r.evento + '</span>';
-                                return '<tr><td class="mono">' + r.pc + '</td><td>' + r.nombre +
-                                    '</td><td>' + badge + '</td><td class="ts">' + r.timestamp + '</td></tr>';
-                            }).join('') +
-                            '</tbody></table>';
+                        var encabezado =
+                            '<table class="st-table"><thead><tr>' +
+                            '<th>PC</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th>' +
+                            '<th>Hora inicio</th><th>Hora salida</th>' +
+                            '</tr></thead><tbody>';
+
+                        var filas = d.recientes.map(function(r) {
+                            // Si la sesión sigue activa → etiqueta verde; si terminó → texto plano
+                            var salidaTd = r.hora_salida !== null
+                                ? '<td class="ts">' + r.hora_salida + '</td>'
+                                : '<td><span class="badge-en-uso">En uso</span></td>';
+
+                            return '<tr>' +
+                                '<td class="mono">' + r.pc        + '</td>' +
+                                '<td class="mono">' + r.matricula + '</td>' +
+                                '<td>'             + r.nombre     + '</td>' +
+                                '<td>'             + r.carrera    + '</td>' +
+                                '<td class="ts">'  + r.hora_inicio+ '</td>' +
+                                salidaTd +
+                                '</tr>';
+                        }).join('');
+
+                        recEl.innerHTML = encabezado + filas + '</tbody></table>';
                     }
 
                     /* Top PCs */

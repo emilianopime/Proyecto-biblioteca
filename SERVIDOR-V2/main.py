@@ -422,21 +422,43 @@ def get_stats():
         """)
         dist_carreras = [{"carrera": r[0], "total": r[1]} for r in cursor.fetchall()]
 
+        # Empareja cada LOGIN con su siguiente LOGOUT/LOGOUT_APAGADO en la misma
+        # computadora para el mismo alumno, usando LATERAL para eficiencia.
+        # Si no existe cierre de sesión, hora_salida queda NULL (sesión activa).
         cursor.execute("""
-            SELECT b.computer_id, a.firstname, a.surname, b.matricula, b.evento, b.timestamp
-            FROM bitacora_uso b
-            LEFT JOIN alumnos a ON b.matricula = a.cardnumber
-            ORDER BY b.timestamp DESC
+            SELECT
+                l.computer_id,
+                l.matricula,
+                a.firstname,
+                a.surname,
+                a.sort1,
+                l.timestamp         AS hora_inicio,
+                s.timestamp         AS hora_salida
+            FROM bitacora_uso l
+            LEFT JOIN LATERAL (
+                SELECT timestamp
+                FROM   bitacora_uso
+                WHERE  computer_id = l.computer_id
+                  AND  matricula   = l.matricula
+                  AND  evento      IN ('LOGOUT', 'LOGOUT_APAGADO')
+                  AND  timestamp   > l.timestamp
+                ORDER BY timestamp ASC
+                LIMIT 1
+            ) s ON true
+            LEFT JOIN alumnos a ON l.matricula = a.cardnumber
+            WHERE l.evento = 'LOGIN'
+            ORDER BY l.timestamp DESC
             LIMIT 15
         """)
         recientes = []
         for r in cursor.fetchall():
             recientes.append({
-                "pc":        r[0],
-                "nombre":    f"{r[1] or ''} {r[2] or ''}".strip() or "Desconocido",
-                "matricula": r[3],
-                "evento":    r[4],
-                "timestamp": r[5].strftime("%d/%m/%Y %H:%M") if r[5] else "",
+                "pc":          r[0],
+                "matricula":   r[1],
+                "nombre":      f"{r[2] or ''} {r[3] or ''}".strip() or "Desconocido",
+                "carrera":     r[4] or "—",
+                "hora_inicio": r[5].strftime("%d/%m/%Y %H:%M") if r[5] else "",
+                "hora_salida": r[6].strftime("%d/%m/%Y %H:%M") if r[6] else None,
             })
 
         cursor.close()
