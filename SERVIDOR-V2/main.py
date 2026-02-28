@@ -254,14 +254,16 @@ def procesar_csv(archivo, tabla):
     df["cardnumber"] = pd.to_numeric(df["cardnumber"], errors="coerce").fillna(0).astype("int64")
     df = df.drop_duplicates(subset=["cardnumber"], keep="first")
 
-    # Normalizar el campo de carrera/profesion
-    df["sort1"] = df["sort1"].fillna("Sin Profesion").astype(str).str.strip()
-
     # El campo 'surname' a veces viene como "Apellido, Nombre" en un solo campo
     df["surname"] = df["surname"].astype(str)
     mask = df["surname"].str.contains(",", na=False)
     df.loc[mask,  ["surname", "firstname"]] = df.loc[mask,  "surname"].str.split(",", n=1, expand=True).values
     df.loc[~mask, ["surname", "firstname"]] = df.loc[~mask, "surname"].str.rsplit(" ", n=1, expand=True).values
+
+    # Normalizar capitalización: "GARCIA LOPEZ" → "Garcia Lopez"
+    df["surname"]   = df["surname"].astype(str).str.strip().str.title()
+    df["firstname"] = df["firstname"].astype(str).str.strip().str.title()
+    df["sort1"]     = df["sort1"].fillna("Sin Profesion").astype(str).str.strip().str.title()
 
     df = df[["cardnumber", "surname", "firstname", "sort1"]]
 
