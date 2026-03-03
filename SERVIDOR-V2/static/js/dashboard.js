@@ -103,3 +103,111 @@ async function deleteComputer(id) {
 
 setInterval(loadComputers, 5000);
 loadComputers();
+
+/* ── Sidebar & vistas ───────────────────────────────── */
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+var statsInterval = null;
+
+function setView(name) {
+    document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function(i) { i.classList.remove('active'); });
+    document.getElementById('view-' + name).classList.add('active');
+    var navEl = document.getElementById('nav-' + name);
+    if (navEl) navEl.classList.add('active');
+
+    if (name === 'stats') {
+        loadStats();
+        if (!statsInterval) { statsInterval = setInterval(loadStats, 30000); }
+    } else {
+        if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+    }
+}
+
+/* ── Estadísticas ───────────────────────────────────── */
+function loadStats() {
+    fetch('/api/stats')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.error) return;
+
+            document.getElementById('st-total-alumnos').textContent = d.total_alumnos.toLocaleString('es-MX');
+            document.getElementById('st-logins-hoy').textContent     = d.logins_hoy;
+            document.getElementById('st-logins-semana').textContent  = d.logins_semana;
+            document.getElementById('st-logins-mes').textContent     = d.logins_mes;
+
+            /* Actividad reciente */
+            var recEl = document.getElementById('st-recientes');
+            if (!d.recientes.length) {
+                recEl.innerHTML = '<div class="empty-msg">Sin actividad registrada aún.</div>';
+            } else {
+                var encabezado =
+                    '<table class="st-table"><thead><tr>' +
+                    '<th>PC</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th>' +
+                    '<th>Hora inicio</th><th>Hora salida</th>' +
+                    '</tr></thead><tbody>';
+
+                var filas = d.recientes.map(function(r) {
+                    var salidaTd = r.hora_salida !== null
+                        ? '<td class="ts">' + r.hora_salida + '</td>'
+                        : '<td><span class="badge-en-uso">En uso</span></td>';
+
+                    return '<tr>' +
+                        '<td class="mono">' + r.pc        + '</td>' +
+                        '<td class="mono">' + r.matricula + '</td>' +
+                        '<td>'             + r.nombre     + '</td>' +
+                        '<td>'             + r.carrera    + '</td>' +
+                        '<td class="ts">'  + r.hora_inicio+ '</td>' +
+                        salidaTd +
+                        '</tr>';
+                }).join('');
+
+                recEl.innerHTML = encabezado + filas + '</tbody></table>';
+            }
+
+            /* Top PCs */
+            var pcsEl = document.getElementById('st-top-pcs');
+            if (!d.top_pcs.length) {
+                pcsEl.innerHTML = '<div class="empty-msg">Sin datos de uso aún.</div>';
+            } else {
+                var maxPc = d.top_pcs[0].total;
+                pcsEl.innerHTML = d.top_pcs.map(function(p) {
+                    var pct = Math.round((p.total / maxPc) * 100);
+                    return '<div class="bar-row"><span class="bar-label">' + p.pc + '</span>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#22d3ee"></div></div>' +
+                        '<span class="bar-count">' + p.total + '</span></div>';
+                }).join('');
+            }
+
+            /* Distribución carreras padrón */
+            var carEl = document.getElementById('st-dist-carreras');
+            if (!d.dist_carreras.length) {
+                carEl.innerHTML = '<div class="empty-msg">Sin datos.</div>';
+            } else {
+                var maxCar = d.dist_carreras[0].total;
+                carEl.innerHTML = d.dist_carreras.map(function(c) {
+                    var pct = Math.round((c.total / maxCar) * 100);
+                    return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#6366f1"></div></div>' +
+                        '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
+                }).join('');
+            }
+
+            /* Top carreras por uso real */
+            var usoEl = document.getElementById('st-top-carreras-uso');
+            if (!d.top_carreras_uso.length) {
+                usoEl.innerHTML = '<div class="empty-msg">Sin datos de uso aún.</div>';
+            } else {
+                var maxUso = d.top_carreras_uso[0].total;
+                usoEl.innerHTML = d.top_carreras_uso.map(function(c) {
+                    var pct = Math.round((c.total / maxUso) * 100);
+                    return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#10b981"></div></div>' +
+                        '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
+                }).join('');
+            }
+        })
+        .catch(function(e) { console.error('Error cargando estadísticas:', e); });
+}
