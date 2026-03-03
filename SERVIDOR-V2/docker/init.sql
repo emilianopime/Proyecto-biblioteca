@@ -22,3 +22,6 @@ CREATE TABLE IF NOT EXISTS bitacora_uso (
     evento      TEXT,
     timestamp   TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_bitacora_computer ON bitacora_uso (computer_id);
+CREATE INDEX IF NOT EXISTS idx_bitacora_matricula ON bitacora_uso (matricula);
