@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Instalar dependencias primero (aprovecha caché de Docker)
+# Instalar dependencias primero para aprovechar la caché
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -11,4 +11,5 @@ COPY . .
 
 EXPOSE 8000
 
+# Comando original usando Werkzeug (Flask dev server)
 CMD ["python", "main.py"]

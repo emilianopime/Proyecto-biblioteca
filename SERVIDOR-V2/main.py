@@ -24,26 +24,34 @@ Rutas de autenticacion (manejadas por auth.py):
   GET/POST /login                — Formulario de inicio de sesion.
   GET      /logout               — Cierre de sesion.
 """
-
+import csv
 import os
 import io
 import threading
 import time
-from datetime import datetime
-
+from datetime import datetime, timedelta
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, jsonify, session
-
+from flask import Flask, render_template, request, jsonify, session, Response
 from auth import auth_bp, login_required
-
-# ---------------------------------------------------------------------------
-# Configuracion inicial
-# ---------------------------------------------------------------------------
-
-# Carga las variables definidas en el archivo .env
 load_dotenv()
+import logging
+
+# ---------------------------------------------------------------------------
+# Silenciar logs molestos de polling en la consola
+# ---------------------------------------------------------------------------
+class NoPollingFilter(logging.Filter):
+    def filter(self, record):
+        # Ignorar las peticiones que contengan estas rutas en su mensaje
+        mensaje = record.getMessage()
+        if '/api/computers' in mensaje or '/api/heartbeat' in mensaje:
+            return False
+        return True
+
+# Aplicamos el filtro al logger interno de Flask (Werkzeug)
+logging.getLogger("werkzeug").addFilter(NoPollingFilter())
+
 
 app = Flask(__name__)
 
@@ -60,21 +68,15 @@ app.register_blueprint(auth_bp)
 # ---------------------------------------------------------------------------
 
 DB_CONFIG = {
-    "host":     os.getenv("DB_HOST", "localhost"),
-    "database": os.getenv("DB_NAME", "basedatosuach"),
-    "user":     os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD", ""),
-    "port":     os.getenv("DB_PORT", "5432"),
+    "host":     os.getenv("DB_HOST"),
+    "database": os.getenv("DB_NAME"),
+    "user":     os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "port":     os.getenv("DB_PORT"),
 }
 
-# ---------------------------------------------------------------------------
-# Estado en memoria de los equipos conectados
-# ---------------------------------------------------------------------------
-
-# Diccionario {computer_id: objeto Computer} con el estado de cada nodo.
 computers = {}
 
-# Segundos maximos sin recibir heartbeat antes de marcar un equipo como offline.
 TIMEOUT = 15
 
 
@@ -83,18 +85,6 @@ TIMEOUT = 15
 # ---------------------------------------------------------------------------
 
 class Computer:
-    """
-    Representa un equipo del laboratorio conectado al servidor.
-
-    Atributos:
-        id (str)             : Identificador unico del equipo (hostname).
-        name (str)           : Nombre legible del equipo (ej. Lab_PC01).
-        ip (str)             : Direccion IP en la red local.
-        info (dict)          : Informacion adicional enviada por el kiosko
-                               (locked, current_user, cardnumber, etc.).
-        last_heartbeat (datetime): Timestamp del ultimo heartbeat recibido.
-        status (str)         : 'online' u 'offline'.
-    """
 
     def __init__(self, computer_id, name, ip, info):
         self.id             = computer_id
@@ -130,8 +120,6 @@ class Computer:
             "last_heartbeat": self.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S"),
             "info":           self.info,
         }
-
-
 # ---------------------------------------------------------------------------
 # Hilo de monitoreo de equipos
 # ---------------------------------------------------------------------------
@@ -139,7 +127,6 @@ class Computer:
 def check_computers_status():
     """
     Hilo en segundo plano que revisa el estado de cada equipo cada 5 segundos.
-
     Si detecta que un equipo paso de 'online' a 'offline' mientras tenia
     una sesion de alumno activa, registra un LOGOUT_APAGADO en la base de datos
     para mantener la integridad de la bitacora.
@@ -178,12 +165,9 @@ def check_computers_status():
                         print(f"Error registrando logout automatico: {e}")
 
         time.sleep(5)
-
-
 # ---------------------------------------------------------------------------
 # Persistencia de computadoras en PostgreSQL
 # ---------------------------------------------------------------------------
-
 def crear_tabla_computadoras():
     """Crea la tabla computadoras en PostgreSQL si no existe."""
     try:
@@ -204,50 +188,49 @@ def crear_tabla_computadoras():
         print(f"Advertencia: no se pudo crear la tabla computadoras: {e}")
 
 
+
 def cargar_computadoras_conocidas():
     """
-    Al arrancar el servidor, carga todas las computadoras previamente
-    conocidas desde la base de datos. Se marcan como 'offline' hasta
-    que vuelvan a enviar un heartbeat.
+    Carga las computadoras conocidas desde la DB al iniciar.
+    Fuerza el estado a OFFLINE ignorando la hora de la DB para evitar
+    falsos positivos por diferencias de zona horaria (UTC vs Local).
     """
     try:
-        conn   = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, ip, last_heartbeat FROM computadoras")
+        cursor.execute("SELECT id, name, ip FROM computadoras")
         rows = cursor.fetchall()
         cursor.close()
         conn.close()
+
         for row in rows:
-            c_id, name, ip, last_hb = row
-            comp                = Computer(c_id, name, ip, {})
-            comp.last_heartbeat = last_hb if last_hb else datetime.now()
-            comp.status         = "offline"
-            computers[c_id]     = comp
+            c_id, name, ip = row
+
+            # Inicializamos con info vacía
+            comp = Computer(c_id, name, ip, {})
+
+            # TRUCO: Le restamos 5 minutos a la hora actual de Python.
+            # Así, el hilo de monitoreo verá que pasó el TIMEOUT de 15s e iniciará OFFLINE.
+            comp.last_heartbeat = datetime.now() - timedelta(minutes=5)
+            comp.status = "offline"
+
+            computers[c_id] = comp
+
         if rows:
-            print(f"Computadoras cargadas desde DB: {len(rows)}")
+            print(f"Computadoras cargadas desde DB (modo offline): {len(rows)}")
     except Exception as e:
         print(f"Advertencia: no se pudo cargar computadoras desde DB: {e}")
-
 
 # Iniciar el hilo de monitoreo como daemon para que se detenga al cerrar el servidor
 crear_tabla_computadoras()
 cargar_computadoras_conocidas()
 threading.Thread(target=check_computers_status, daemon=True).start()
 
-
 # ---------------------------------------------------------------------------
 # Logica de negocio: procesamiento del CSV de alumnos
 # ---------------------------------------------------------------------------
 
 def procesar_csv(archivo, tabla):
-    """
-    Lee el CSV del padron de alumnos, lo limpia con pandas y lo carga
-    en la tabla indicada de PostgreSQL usando COPY (mas eficiente que INSERT).
-
-    El archivo nunca se guarda en disco: se procesa completamente en memoria.
-
-    Columnas esperadas en el CSV: cardnumber, surname, firstname, sort1.
-    """
     df = pd.read_csv(archivo, encoding="latin-1", dtype=str)
 
     # Convertir matricula a numero entero, descartar filas invalidas
@@ -257,19 +240,27 @@ def procesar_csv(archivo, tabla):
     # El campo 'surname' a veces viene como "Apellido, Nombre" en un solo campo
     df["surname"] = df["surname"].astype(str)
     mask = df["surname"].str.contains(",", na=False)
-    df.loc[mask,  ["surname", "firstname"]] = df.loc[mask,  "surname"].str.split(",", n=1, expand=True).values
+
+    # Manejo de separaciones por coma o espacio
+    df.loc[mask, ["surname", "firstname"]] = df.loc[mask, "surname"].str.split(",", n=1, expand=True).values
     df.loc[~mask, ["surname", "firstname"]] = df.loc[~mask, "surname"].str.rsplit(" ", n=1, expand=True).values
 
     # Normalizar capitalización: "GARCIA LOPEZ" → "Garcia Lopez"
-    df["surname"]   = df["surname"].astype(str).str.strip().str.title()
+    df["surname"] = df["surname"].astype(str).str.strip().str.title()
     df["firstname"] = df["firstname"].astype(str).str.strip().str.title()
-    df["sort1"]     = df["sort1"].fillna("Sin Profesion").astype(str).str.strip().str.title()
-
+    df["sort1"] = df["sort1"].fillna("Sin Profesion").astype(str).str.strip().str.title()
+    # Seleccionar las columnas finales
     df = df[["cardnumber", "surname", "firstname", "sort1"]]
-
-    conn   = psycopg2.connect(**DB_CONFIG)
+    datos_invitado = pd.DataFrame([{
+        "cardnumber": 10203,
+        "surname": "Invitado",  # Puedes personalizar el apellido
+        "firstname": "Especial",  # Puedes personalizar el nombre
+        "sort1": "Invitado"  # O usar "Sin Profesion"
+    }])
+    df = pd.concat([df, datos_invitado], ignore_index=True)
+# -------------------------------------------------------------------
+    conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
-
     # Crear la tabla si no existe y limpiarla antes de cargar
     cursor.execute(
         f'CREATE TABLE IF NOT EXISTS "{tabla}" '
@@ -277,7 +268,7 @@ def procesar_csv(archivo, tabla):
     )
     cursor.execute(f'TRUNCATE TABLE "{tabla}";')
 
-    # Cargar con COPY desde un buffer en memoria (mucho mas rapido que INSERT fila a fila)
+    # Cargar con COPY desde un buffer en memoria
     buffer = io.StringIO()
     df.to_csv(buffer, index=False, header=False)
     buffer.seek(0)
@@ -286,19 +277,14 @@ def procesar_csv(archivo, tabla):
     conn.commit()
     cursor.close()
     conn.close()
-
-
 # ===========================================================================
 # RUTAS DEL DASHBOARD (protegidas — requieren sesion activa)
 # ===========================================================================
-
 @app.route("/")
 @login_required
 def index():
     """Renderiza el panel principal del dashboard."""
     return render_template("dashboard.html", username=session.get("username"))
-
-
 @app.route("/api/upload", methods=["POST"])
 @login_required
 def upload():
@@ -313,7 +299,6 @@ def upload():
         return jsonify({"message": f"Exito: datos cargados en '{table_name}'"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/api/computers")
 @login_required
@@ -334,10 +319,6 @@ def get_computers():
 @app.route("/api/computer/<computer_id>", methods=["DELETE"])
 @login_required
 def delete_computer(computer_id):
-    """
-    Elimina un equipo del monitor en memoria.
-    Si el equipo sigue encendido, volvera a aparecer en el proximo heartbeat.
-    """
     if computer_id in computers:
         del computers[computer_id]
         try:
@@ -352,23 +333,9 @@ def delete_computer(computer_id):
         return jsonify({"status": "success"})
     return jsonify({"error": "No encontrado"}), 404
 
-
 @app.route("/api/stats")
 @login_required
 def get_stats():
-    """
-    Devuelve estadisticas de uso del laboratorio para la vista de estadisticas.
-
-    Datos incluidos:
-      - total_alumnos    : Total de alumnos en el padron.
-      - logins_hoy       : Accesos registrados el dia de hoy.
-      - logins_semana    : Accesos en la semana actual.
-      - logins_mes       : Accesos en el mes actual.
-      - top_pcs          : Top 10 equipos con mas usos.
-      - top_carreras_uso : Top 10 carreras cuyos alumnos mas usan el laboratorio.
-      - dist_carreras    : Distribucion del padron completo por carrera (top 10).
-      - recientes        : Ultimas 15 entradas de la bitacora con nombre del alumno.
-    """
     try:
         conn   = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
@@ -393,6 +360,12 @@ def get_stats():
             "WHERE evento = 'LOGIN' AND timestamp >= date_trunc('month', NOW())"
         )
         logins_mes = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM bitacora_uso "
+            "WHERE evento = 'LOGIN' AND timestamp >= NOW() - INTERVAL '6 months'"
+        )
+        logins_semestre = cursor.fetchone()[0]
 
         cursor.execute("""
             SELECT a.sort1, COUNT(*) AS total
@@ -427,59 +400,159 @@ def get_stats():
         # Empareja cada LOGIN con su siguiente LOGOUT/LOGOUT_APAGADO en la misma
         # computadora para el mismo alumno, usando LATERAL para eficiencia.
         # Si no existe cierre de sesión, hora_salida queda NULL (sesión activa).
+        # Actividad reciente como un log de eventos real
+        # MODIFICADO: Actividad reciente como un log de eventos real
+        # y corrección de zona horaria a Chihuahua
         cursor.execute("""
-            SELECT
-                l.computer_id,
-                l.matricula,
-                a.firstname,
-                a.surname,
-                a.sort1,
-                l.timestamp         AS hora_inicio,
-                s.timestamp         AS hora_salida
-            FROM bitacora_uso l
-            LEFT JOIN LATERAL (
-                SELECT timestamp
-                FROM   bitacora_uso
-                WHERE  computer_id = l.computer_id
-                  AND  matricula   = l.matricula
-                  AND  evento      IN ('LOGOUT', 'LOGOUT_APAGADO')
-                  AND  timestamp   > l.timestamp
-                ORDER BY timestamp ASC
-                LIMIT 1
-            ) s ON true
-            LEFT JOIN alumnos a ON l.matricula = a.cardnumber
-            WHERE l.evento = 'LOGIN'
-            ORDER BY l.timestamp DESC
-            LIMIT 15
-        """)
+                    SELECT
+                        b.computer_id,
+                        b.matricula,
+                        a.firstname,
+                        a.surname,
+                        a.sort1,
+                        b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua' AS hora,
+                        b.evento
+                    FROM bitacora_uso b
+                    LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+                    ORDER BY b.timestamp DESC
+                    LIMIT 15
+                """)
+
         recientes = []
         for r in cursor.fetchall():
             recientes.append({
-                "pc":          r[0],
-                "matricula":   r[1],
-                "nombre":      f"{r[2] or ''} {r[3] or ''}".strip() or "Desconocido",
-                "carrera":     r[4] or "—",
-                "hora_inicio": r[5].strftime("%d/%m/%Y %H:%M") if r[5] else "",
-                "hora_salida": r[6].strftime("%d/%m/%Y %H:%M") if r[6] else None,
+                "pc": r[0],
+                "matricula": r[1],
+                "nombre": f"{r[2] or ''} {r[3] or ''}".strip() or "Desconocido",
+                "carrera": r[4] or "—",
+                "hora": r[5].strftime("%d/%m/%Y %H:%M") if r[5] else "",
+                "evento": r[6]
             })
 
         cursor.close()
         conn.close()
 
         return jsonify({
-            "total_alumnos":    total_alumnos,
-            "logins_hoy":       logins_hoy,
-            "logins_semana":    logins_semana,
-            "logins_mes":       logins_mes,
+            "total_alumnos": total_alumnos,
+            "logins_hoy": logins_hoy,
+            "logins_semana": logins_semana,
+            "logins_mes": logins_mes,
+            "logins_semestre": logins_semestre,  # <-- Asegúrate de tener la consulta de esto más arriba
             "top_carreras_uso": top_carreras_uso,
-            "top_pcs":          top_pcs,
-            "dist_carreras":    dist_carreras,
-            "recientes":        recientes,
+            "top_pcs": top_pcs,
+            "dist_carreras": dist_carreras,
+            "recientes": recientes,
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/api/logs")
+@login_required
+def get_logs():
+    """Devuelve el historial completo paginado (20 por página)"""
+    page  = int(request.args.get("page", 1))
+    limit = 20
+    offset = (page - 1) * limit
+
+    try:
+        conn   = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        # 1. Obtener el total de páginas
+        cursor.execute("SELECT COUNT(*) FROM bitacora_uso")
+        total_records = cursor.fetchone()[0]
+        total_pages   = (total_records + limit - 1) // limit
+
+        # 2. Obtener los 20 registros de esta página específica
+        cursor.execute("""
+            SELECT
+                b.computer_id,
+                b.matricula,
+                a.firstname,
+                a.surname,
+                a.sort1,
+                b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua' AS hora,
+                b.evento
+            FROM bitacora_uso b
+            LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            ORDER BY b.timestamp DESC
+            LIMIT %s OFFSET %s
+        """, (limit, offset))
+
+        logs = []
+        for r in cursor.fetchall():
+            logs.append({
+                "pc":        r[0],
+                "matricula": r[1],
+                "nombre":    f"{r[2] or ''} {r[3] or ''}".strip() or "Desconocido",
+                "carrera":   r[4] or "—",
+                "hora":      r[5].strftime("%d/%m/%Y %H:%M:%S") if r[5] else "",
+                "evento":    r[6]
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "logs":         logs,
+            "current_page": page,
+            "total_pages":  total_pages if total_pages > 0 else 1
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/logs/export', methods=['GET'])
+@login_required
+def export_logs_csv():
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        # Consulta corregida: usando a.sort1 y la zona horaria correcta de Chihuahua
+        query = """
+            SELECT 
+                b.computer_id, 
+                b.matricula, 
+                COALESCE(a.firstname || ' ' || a.surname, 'Desconocido') AS nombre,
+                COALESCE(a.sort1, 'N/A') AS carrera,
+                TO_CHAR(b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua', 'YYYY-MM-DD HH24:MI:SS') AS hora,
+                b.evento
+            FROM bitacora_uso b
+            LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            ORDER BY b.timestamp DESC;
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        # Generar el archivo CSV en memoria
+        si = io.StringIO()
+        cw = csv.writer(si)
+
+        # Escribir los encabezados
+        cw.writerow(['PC', 'Matricula', 'Nombre', 'Carrera', 'Hora', 'Evento'])
+
+        # Escribir los datos
+        cw.writerows(rows)
+
+        output = si.getvalue()
+
+        # Retornar como un archivo descargable
+        return Response(
+            output,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=bitacora_laboratorio.csv"}
+        )
+
+    except Exception as e:
+        print(f"Error fatal al exportar CSV: {e}")  # Para que lo veas en la terminal
+        return jsonify({"error": str(e)}), 500
 
 # ===========================================================================
 # RUTAS DE LA API KIOSKO (abiertas — llamadas desde los nodos del laboratorio)
@@ -487,17 +560,6 @@ def get_stats():
 
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
-    """
-    Recibe el latido periodico de un equipo del laboratorio.
-
-    El kiosko envia su ID, nombre, IP e informacion del estado actual
-    (bloqueado/desbloqueado, usuario activo). Si el equipo no estaba
-    registrado, se agrega al diccionario. Si ya existia, se actualiza
-    su heartbeat y su informacion.
-
-    Esta ruta no requiere autenticacion porque la llaman los nodos
-    directamente, no un navegador con sesion.
-    """
     data  = request.json
     c_id  = data.get("id")
 
@@ -511,18 +573,19 @@ def heartbeat():
     else:
         computers[c_id].update_heartbeat(data.get("info"))
 
-    # Persistir en DB para sobrevivir reinicios del servidor
+    # Persistir en DB: Usamos la hora exacta de Python (computers[c_id].last_heartbeat)
+    # en lugar de dejar que Postgres invente la suya con NOW()
     try:
         conn   = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO computadoras (id, name, ip, last_heartbeat)
-            VALUES (%s, %s, %s, NOW())
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE
                 SET name           = EXCLUDED.name,
                     ip             = EXCLUDED.ip,
-                    last_heartbeat = NOW()
-        """, (c_id, computers[c_id].name, computers[c_id].ip))
+                    last_heartbeat = EXCLUDED.last_heartbeat
+        """, (c_id, computers[c_id].name, computers[c_id].ip, computers[c_id].last_heartbeat))
         conn.commit()
         cursor.close()
         conn.close()
@@ -594,4 +657,4 @@ def verify_student():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=False)

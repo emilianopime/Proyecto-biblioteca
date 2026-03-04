@@ -39,7 +39,15 @@ function enviarCsv(file) {
 async function loadComputers() {
     try {
         const response = await fetch('/api/computers');
-        const data     = await response.json();
+
+        // ---  Validación de sesión ---
+        // Si el servidor nos rechaza (401) o redirigió la petición al login (302)
+        if (response.status === 401 || response.redirected) {
+            window.location.href = '/login';
+            return; // Abortar ejecución
+        }
+        // -----------------------------------
+        const data = await response.json();
 
         document.getElementById('total-computers').textContent   = data.total;
         document.getElementById('online-computers').textContent  = data.online;
@@ -118,9 +126,13 @@ function setView(name) {
     var navEl = document.getElementById('nav-' + name);
     if (navEl) navEl.classList.add('active');
 
+    // Manejo de intervalos y carga de datos según la vista
     if (name === 'stats') {
         loadStats();
         if (!statsInterval) { statsInterval = setInterval(loadStats, 30000); }
+    } else if (name === 'logs') { // <--- ESTA ES LA PARTE CLAVE QUE FALTABA
+        loadLogs(1);
+        if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
     } else {
         if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
     }
@@ -129,16 +141,25 @@ function setView(name) {
 /* ── Estadísticas ───────────────────────────────────── */
 function loadStats() {
     fetch('/api/stats')
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            // --- NUEVO: Validación de sesión ---
+            if (r.redirected || r.status === 401) {
+                window.location.href = '/login';
+                throw new Error('Sesión expirada');
+            }
+            // -----------------------------------
+            return r.json();
+        })
         .then(function(d) {
             if (d.error) return;
 
-            document.getElementById('st-total-alumnos').textContent = d.total_alumnos.toLocaleString('es-MX');
+            document.getElementById('st-total-alumnos').textContent  = d.total_alumnos.toLocaleString('es-MX');
             document.getElementById('st-logins-hoy').textContent     = d.logins_hoy;
             document.getElementById('st-logins-semana').textContent  = d.logins_semana;
             document.getElementById('st-logins-mes').textContent     = d.logins_mes;
+            document.getElementById('st-logins-semestre').textContent= d.logins_semestre;
 
-            /* Actividad reciente */
+            /* Actividad reciente actualizada */
             var recEl = document.getElementById('st-recientes');
             if (!d.recientes.length) {
                 recEl.innerHTML = '<div class="empty-msg">Sin actividad registrada aún.</div>';
@@ -146,21 +167,29 @@ function loadStats() {
                 var encabezado =
                     '<table class="st-table"><thead><tr>' +
                     '<th>PC</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th>' +
-                    '<th>Hora inicio</th><th>Hora salida</th>' +
+                    '<th>Hora</th><th>Evento</th>' +
                     '</tr></thead><tbody>';
 
                 var filas = d.recientes.map(function(r) {
-                    var salidaTd = r.hora_salida !== null
-                        ? '<td class="ts">' + r.hora_salida + '</td>'
-                        : '<td><span class="badge-en-uso">En uso</span></td>';
+                    var badgeClass = 'badge-en-uso';
+                    var evText = r.evento;
+
+                    if (r.evento === 'LOGIN') {
+                        badgeClass = 'badge-login';
+                    } else if (r.evento.startsWith('LOGOUT')) {
+                        badgeClass = 'badge-logout';
+                        evText = 'LOGOUT';
+                    }
+
+                    var eventoTd = '<td><span class="' + badgeClass + '">' + evText + '</span></td>';
 
                     return '<tr>' +
                         '<td class="mono">' + r.pc        + '</td>' +
                         '<td class="mono">' + r.matricula + '</td>' +
                         '<td>'             + r.nombre     + '</td>' +
                         '<td>'             + r.carrera    + '</td>' +
-                        '<td class="ts">'  + r.hora_inicio+ '</td>' +
-                        salidaTd +
+                        '<td class="ts">'  + r.hora       + '</td>' +
+                        eventoTd +
                         '</tr>';
                 }).join('');
 
@@ -210,4 +239,65 @@ function loadStats() {
             }
         })
         .catch(function(e) { console.error('Error cargando estadísticas:', e); });
+}
+
+/* ── Bitácora General (Paginada) ────────────────────── */
+/* ── Bitácora General (Paginada) ────────────────────── */
+function loadLogs(page) {
+    fetch('/api/logs?page=' + page)
+        .then(function(r) {
+            // --- NUEVO: Validación de sesión ---
+            if (r.redirected || r.status === 401) {
+                window.location.href = '/login';
+                throw new Error('Sesión expirada');
+            }
+            // -----------------------------------
+            return r.json();
+        })
+        .then(function(d) {
+            if (d.error) return;
+
+            var container = document.getElementById('logs-container');
+            var pagination = document.getElementById('logs-pagination');
+
+            if (!d.logs || !d.logs.length) {
+                container.innerHTML = '<div class="empty-msg">No hay registros en la bitácora.</div>';
+                pagination.innerHTML = '';
+                return;
+            }
+
+            // Construir tabla
+            var html = '<table class="st-table"><thead><tr><th>PC</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th><th>Hora</th><th>Evento</th></tr></thead><tbody>';
+            html += d.logs.map(function(r) {
+                var badgeClass = 'badge-en-uso';
+                var evText = r.evento;
+
+                if (r.evento === 'LOGIN') {
+                    badgeClass = 'badge-login';
+                } else if (r.evento.startsWith('LOGOUT')) {
+                    badgeClass = 'badge-logout';
+                    evText = 'LOGOUT';
+                }
+
+                return '<tr>' +
+                    '<td class="mono">' + r.pc + '</td>' +
+                    '<td class="mono">' + r.matricula + '</td>' +
+                    '<td>' + r.nombre + '</td>' +
+                    '<td>' + r.carrera + '</td>' +
+                    '<td class="ts">' + r.hora + '</td>' +
+                    '<td><span class="' + badgeClass + '">' + evText + '</span></td>' +
+                    '</tr>';
+            }).join('');
+            html += '</tbody></table>';
+
+            container.innerHTML = html;
+
+            // Construir controles de paginación
+            var btnPrev = '<button class="btn-page" ' + (d.current_page <= 1 ? 'disabled' : '') + ' onclick="loadLogs(' + (d.current_page - 1) + ')">Anterior</button>';
+            var info = '<span class="page-info">Página ' + d.current_page + ' de ' + d.total_pages + '</span>';
+            var btnNext = '<button class="btn-page" ' + (d.current_page >= d.total_pages ? 'disabled' : '') + ' onclick="loadLogs(' + (d.current_page + 1) + ')">Siguiente</button>';
+
+            pagination.innerHTML = btnPrev + info + btnNext;
+        })
+        .catch(function(e) { console.error('Error cargando bitácora:', e); });
 }

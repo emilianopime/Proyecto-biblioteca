@@ -25,6 +25,7 @@ from flask import (
     session,
     redirect,
     url_for,
+    jsonify
 )
 
 # Blueprint que agrupa todas las rutas de autenticacion.
@@ -47,11 +48,17 @@ def login_required(f):
         def mi_vista():
             ...
     """
+
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("authenticated"):
+            # Si la petición es de Javascript (API), devolver error 401
+            if request.path.startswith('/api/'):
+                return jsonify({"error": "Sesión expirada"}), 401
+            # Si es navegación normal, redirigir al login
             return redirect(url_for("auth.login"))
         return f(*args, **kwargs)
+
     return decorated
 
 

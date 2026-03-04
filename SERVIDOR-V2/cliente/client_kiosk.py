@@ -4,11 +4,51 @@ import threading
 import time
 import requests
 import socket
+import json
+import os
+
+# ==========================================
+# GESTIÓN DE LA CONFIGURACIÓN
+# ==========================================
+CONFIG_FILE = "config.json"
+DEFAULT_SERVER_URL = "http://192.168.1.68:8000"
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Intenta conectar a una IP externa para descubrir qué interfaz de red se usa
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+LOCAL_IP = get_local_ip()
+
+def load_server_url():
+    """Lee la URL del servidor desde un archivo JSON. Si no existe, lo crea."""
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                # Retorna la URL del archivo, o la default si la clave no existe
+                return config.get("server_url", DEFAULT_SERVER_URL)
+        except Exception as e:
+            print(f"Error leyendo {CONFIG_FILE}: {e}")
+            return DEFAULT_SERVER_URL
+    else:
+        # Crea el archivo de configuración base si no se encuentra
+        try:
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump({"server_url": DEFAULT_SERVER_URL}, f, indent=4)
+        except Exception as e:
+            print(f"Error creando {CONFIG_FILE}: {e}")
+        return DEFAULT_SERVER_URL
 
 # ==========================================
 # CONFIGURACIÓN DEL CLIENTE
 # ==========================================
-SERVER_URL = "http://192.168.1.68:5000"  # Cambiar por la IP del servidor
+SERVER_URL = load_server_url()      # <-- Ahora se carga desde el archivo
 COMPUTER_ID = socket.gethostname()  # Usa el nombre real de la PC como ID
 COMPUTER_NAME = f"Lab_{COMPUTER_ID}"
 
@@ -16,6 +56,7 @@ COMPUTER_NAME = f"Lab_{COMPUTER_ID}"
 class KioskApp:
     def __init__(self, root):
         self.root = root
+        self.current_matricula = None
         self.current_user = None  # Almacenará el nombre del alumno activo por default en none
         self.is_locked = True
 
@@ -74,12 +115,20 @@ class KioskApp:
 
     def _hacer_peticion_login(self, matricula):
         try:
-            response = requests.post(f"{SERVER_URL}/api/verify_student", json={"cardnumber": matricula}, timeout=5)
+            # 1. Agregamos los datos de la computadora al payload
+            payload = {
+                "cardnumber": matricula,
+                "computer_id": COMPUTER_ID,
+                "computer_name": COMPUTER_NAME
+            }
+
+            # 2. Enviamos el payload completo en lugar de solo la matrícula
+            response = requests.post(f"{SERVER_URL}/api/verify_student", json=payload, timeout=5)
             data = response.json()
 
             if response.status_code == 200 and data.get('status') == 'success':
                 self.current_user = data['student']['name']
-                # Actualizar UI desde el hilo principal de Tkinter
+                self.current_matricula = matricula
                 self.root.after(0, self._desbloquear_exitoso)
             else:
                 msg = data.get('message', 'Acceso denegado')
@@ -94,7 +143,7 @@ class KioskApp:
 
     def _desbloquear_exitoso(self):
         self.is_locked = False
-        self.lbl_mensaje.config(text=f"Bienvenido(a), {self.current_user}", fg="green")
+        self.lbl_mensaje.config(text=f"Bienvenido(a)", fg="green")
 
         # Ocultar la ventana principal para liberar el escritorio
         self.root.after(1500, self.root.withdraw)
@@ -104,17 +153,20 @@ class KioskApp:
     # ==========================================
     def heartbeat_loop(self):
         while True:
-            # Información del sistema (puedes agregar psutil aquí si quieres CPU/RAM)
+            # Información del sistema
             info_sistema = {
                 "platform": "Windows",
                 "locked": self.is_locked,
+                "cardnumber": self.current_matricula if not self.is_locked else None,
                 "current_user": self.current_user if not self.is_locked else "BLOQUEADA"
             }
 
             data = {
                 "id": COMPUTER_ID,
                 "name": COMPUTER_NAME,
+                "ip": LOCAL_IP,
                 "info": info_sistema
+
             }
 
             try:
