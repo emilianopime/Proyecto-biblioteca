@@ -1,0 +1,13 @@
+# Dependencias del cliente kiosko.
+#
+# IMPORTANTE: estas versiones estan fijadas porque el cliente se compila con
+# Python 3.8, que es el ultimo que corre en Windows 7. Las versiones actuales
+# de requests y urllib3 ya exigen Python 3.10+ y no se pueden usar aqui.
+#
+# tkinter no se lista: viene incluido en el instalador de Python para Windows.
+
+requests==2.32.4
+urllib3==2.2.3
+certifi==2026.7.22
+charset-normalizer==3.5.0
+idna==3.15
