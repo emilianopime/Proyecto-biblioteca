@@ -6,11 +6,25 @@ import requests
 import socket
 import json
 import os
+import sys
 
 # ==========================================
 # GESTIÓN DE LA CONFIGURACIÓN
 # ==========================================
-CONFIG_FILE = "config.json"
+def get_base_dir():
+    """Carpeta donde vive el programa.
+
+    Al correr como .exe compilado, el directorio de trabajo depende de cómo se
+    haya lanzado (un acceso directo del inicio de Windows puede dejarlo en
+    System32). Buscar el config.json ahí haría que el cliente ignorara la
+    configuración y se conectara a la URL por defecto. Por eso se resuelve
+    siempre contra la ubicación real del ejecutable.
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_FILE = os.path.join(get_base_dir(), "config.json")
 DEFAULT_SERVER_URL = "http://192.168.1.68:8000"
 def get_local_ip():
     try:

@@ -1,0 +1,84 @@
+name: Build cliente kiosko (32 bits)
+
+# Genera el ejecutable del cliente kiosko para Windows de 32 bits.
+#
+# Se compila con Python 3.8 porque es el ultimo que corre en Windows 7, y en
+# arquitectura x86 porque PyInstaller no puede cambiar de arquitectura: el exe
+# sale siempre igual al interprete que lo construye. Un exe de 32 bits corre
+# tanto en Windows de 32 como de 64, asi que este mismo archivo sirve para
+# todas las computadoras del laboratorio.
+#
+# Se construyen dos variantes a proposito. PyInstaller 6.x ya no soporta
+# Windows 7 oficialmente (aunque su bootloader todavia apunta a ese nivel de
+# API), asi que la 5.13.2 queda como respaldo por si la 6 no arranca en las
+# maquinas viejas. Hay que probar ambas en una PC real del laboratorio.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'cliente-v*'
+    paths:
+      - 'SERVIDOR-V2/cliente/**'
+      - '.github/workflows/build-cliente.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pyinstaller: '6.22.0'
+            sufijo: 'pyi6'
+          - pyinstaller: '5.13.2'
+            sufijo: 'pyi5-respaldo-win7'
+
+    defaults:
+      run:
+        working-directory: SERVIDOR-V2/cliente
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Python 3.8.10 de 32 bits
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8.10'
+          architecture: 'x86'
+
+      - name: Confirmar que el interprete es de 32 bits
+        run: |
+          python -c "import sys, struct; print(sys.version); assert struct.calcsize('P') * 8 == 32, 'El interprete NO es de 32 bits'"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller==${{ matrix.pyinstaller }}
+
+      - name: Compilar el ejecutable
+        run: |
+          pyinstaller --onefile --noconsole --clean --noconfirm --name ClienteKiosko client_kiosk.py
+
+      - name: Verificar que el exe resultante sea de 32 bits
+        # Lee el encabezado PE del ejecutable. El campo "machine" vale 0x014c
+        # para x86 (32 bits) y 0x8664 para x64. Si esto falla, el artefacto no
+        # sirve para las maquinas viejas y es mejor enterarse aqui.
+        run: |
+          python -c "import struct; f=open('dist/ClienteKiosko.exe','rb'); f.seek(0x3C); off=struct.unpack('<I', f.read(4))[0]; f.seek(off); assert f.read(4)==b'PE\0\0', 'No es un ejecutable PE valido'; m=struct.unpack('<H', f.read(2))[0]; print('machine = 0x%04x' % m); assert m==0x014c, 'El exe NO es de 32 bits'"
+
+      - name: Preparar paquete de instalacion
+        # Se empaqueta junto al config.json para que en cada PC solo haya que
+        # copiar la carpeta y editar la URL del servidor.
+        run: |
+          mkdir paquete
+          copy dist\ClienteKiosko.exe paquete\
+          copy config.json paquete\
+
+      - name: Publicar artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClienteKiosko-32bits-${{ matrix.sufijo }}
+          path: SERVIDOR-V2/cliente/paquete/
+          if-no-files-found: error
