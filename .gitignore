@@ -1,5 +1,12 @@
-# Credenciales y variables de entorno — nunca subir al repositorio
+# Credenciales y variables de entorno — nunca subir al repositorio.
+# Las reglas son amplias a proposito: basta con que el archivo se llame "env"
+# o "env.txt" para que una regla que solo cubra ".env" no lo alcance.
 .env
+.env.*
+env
+env.txt
+*.env
+!.env.example
 
 # Archivos del sistema operativo
 .DS_Store
