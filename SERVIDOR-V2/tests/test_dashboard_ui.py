@@ -505,3 +505,11 @@ def test_la_confirmacion_no_enfoca_el_boton_destructivo(navegador, servidor):
     activo = page.evaluate("document.activeElement.id")
     assert activo != "upload-confirm-btn"
     assert "1 registro" in page.locator("#upload-confirm").inner_text()
+
+
+def test_con_servidor_sano_no_se_muestra_el_aviso_de_sin_conexion(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.wait_for_timeout(300)
+
+    assert not page.locator("#server-warning").is_visible()
+    assert "actualizado" in page.locator("#refresh-info").inner_text()
