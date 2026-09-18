@@ -439,25 +439,74 @@ def get_stats():
         return jsonify({"error": str(e)}), 500
 
 
+class FiltroInvalido(ValueError):
+    pass
+
+
+def filtros_bitacora(args):
+    """
+    Traduce los parametros q, evento, desde y hasta a un WHERE con sus valores.
+    q busca en el nombre del equipo, la matricula exacta o el nombre del alumno.
+    Las fechas se comparan en hora de Chihuahua.
+    """
+    condiciones, valores = [], []
+    q = (args.get("q") or "").strip()
+    if q:
+        condiciones.append(
+            "(b.computer_id ILIKE %s OR CAST(b.matricula AS TEXT) = %s "
+            "OR COALESCE(a.firstname, '') || ' ' || COALESCE(a.surname, '') ILIKE %s)"
+        )
+        valores += [f"%{q}%", q, f"%{q}%"]
+    evento = (args.get("evento") or "").strip().lower()
+    if evento == "entrada":
+        condiciones.append("b.evento = 'LOGIN'")
+    elif evento == "salida":
+        condiciones.append("b.evento LIKE 'LOGOUT%%'")
+    for nombre, operador in (("desde", ">="), ("hasta", "<=")):
+        valor = (args.get(nombre) or "").strip()
+        if valor:
+            try:
+                fecha = datetime.strptime(valor, "%Y-%m-%d").date()
+            except ValueError:
+                raise FiltroInvalido(f"La fecha '{nombre}' debe tener la forma AAAA-MM-DD")
+            condiciones.append(f"(b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua')::date {operador} %s")
+            valores.append(fecha)
+    where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+    return where, valores
+
+
+def nombre_export_bitacora(args):
+    desde, hasta = (args.get("desde") or "").strip(), (args.get("hasta") or "").strip()
+    if desde or hasta:
+        return f"bitacora_laboratorio_{desde or 'inicio'}_{hasta or 'hoy'}.csv"
+    return "bitacora_laboratorio.csv"
+
+
 @app.route("/api/logs")
 @login_required
 def get_logs():
-    """Devuelve el historial completo paginado (20 por página)"""
-    page  = int(request.args.get("page", 1))
+    """Devuelve el historial paginado (20 por pagina), con filtros opcionales."""
+    page  = max(1, int(request.args.get("page", 1)))
     limit = 20
     offset = (page - 1) * limit
+
+    try:
+        where, valores = filtros_bitacora(request.args)
+    except FiltroInvalido as e:
+        return jsonify({"error": str(e)}), 400
 
     try:
         conn   = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
 
-        # 1. Obtener el total de páginas
-        cursor.execute("SELECT COUNT(*) FROM bitacora_uso")
+        cursor.execute(
+            f"SELECT COUNT(*) FROM bitacora_uso b LEFT JOIN alumnos a ON b.matricula = a.cardnumber {where}",
+            valores,
+        )
         total_records = cursor.fetchone()[0]
         total_pages   = (total_records + limit - 1) // limit
 
-        # 2. Obtener los 20 registros de esta página específica
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 b.computer_id,
                 b.matricula,
@@ -468,9 +517,10 @@ def get_logs():
                 b.evento
             FROM bitacora_uso b
             LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            {where}
             ORDER BY b.timestamp DESC
             LIMIT %s OFFSET %s
-        """, (limit, offset))
+        """, valores + [limit, offset])
 
         logs = []
         for r in cursor.fetchall():
@@ -571,24 +621,29 @@ def reporte_excel():
 @app.route('/api/logs/export', methods=['GET'])
 @login_required
 def export_logs_csv():
+    """Descarga la bitacora como CSV, con los mismos filtros que la vista."""
+    try:
+        where, valores = filtros_bitacora(request.args)
+    except FiltroInvalido as e:
+        return jsonify({"error": str(e)}), 400
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
 
-        # Consulta corregida: usando a.sort1 y la zona horaria correcta de Chihuahua
-        query = """
-            SELECT 
-                b.computer_id, 
-                b.matricula, 
+        query = f"""
+            SELECT
+                b.computer_id,
+                b.matricula,
                 COALESCE(a.firstname || ' ' || a.surname, 'Desconocido') AS nombre,
                 COALESCE(a.sort1, 'N/A') AS carrera,
                 TO_CHAR(b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua', 'YYYY-MM-DD HH24:MI:SS') AS hora,
                 b.evento
             FROM bitacora_uso b
             LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            {where}
             ORDER BY b.timestamp DESC;
         """
-        cursor.execute(query)
+        cursor.execute(query, valores)
         rows = cursor.fetchall()
 
         cursor.close()
@@ -610,7 +665,7 @@ def export_logs_csv():
         return Response(
             output,
             mimetype="text/csv",
-            headers={"Content-Disposition": "attachment;filename=bitacora_laboratorio.csv"}
+            headers={"Content-Disposition": f"attachment;filename={nombre_export_bitacora(request.args)}"}
         )
 
     except Exception as e:

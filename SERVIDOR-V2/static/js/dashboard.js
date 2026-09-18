@@ -561,26 +561,61 @@ document.getElementById('reporte-hasta').onchange = actualizarReporte;
 actualizarReporte();
 
 /* ── Bitacora ───────────────────────────────────────── */
-function pintarDescargaBitacora(total) {
+function filtrosBitacora() {
+    const f = {
+        q: document.getElementById('logs-q').value.trim(),
+        evento: document.getElementById('logs-evento').value,
+        desde: document.getElementById('logs-desde').value,
+        hasta: document.getElementById('logs-hasta').value,
+    };
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(f)) if (v) params.set(k, v);
+    return { params, activos: [...params.keys()].length > 0, valores: f };
+}
+
+function pintarDescargaBitacora(total, filtros) {
     const enlace = document.getElementById('logs-export');
     const info = document.getElementById('logs-export-info');
     if (total == null) return;
     const vacia = total === 0;
     enlace.setAttribute('aria-disabled', String(vacia));
     enlace.tabIndex = vacia ? -1 : 0;
+    enlace.href = '/api/logs/export' + (filtros.activos ? `?${filtros.params}` : '');
+    enlace.lastChild.textContent = filtros.activos ? ' Descargar estos registros' : ' Descargar bitácora completa';
     info.textContent = vacia
-        ? 'La bitácora está vacía, no hay nada que descargar'
+        ? (filtros.activos ? 'Ningún registro coincide, no hay nada que descargar' : 'La bitácora está vacía, no hay nada que descargar')
         : `${formatearNumero(total)} ${total === 1 ? 'registro' : 'registros'} en un archivo CSV para abrir en Excel`;
 }
+
+let debounceBitacora = null;
+function filtrarBitacora() {
+    clearTimeout(debounceBitacora);
+    debounceBitacora = setTimeout(() => loadLogs(1), 300);
+}
+document.getElementById('logs-q').oninput = filtrarBitacora;
+document.getElementById('logs-evento').onchange = () => loadLogs(1);
+document.getElementById('logs-desde').onchange = () => loadLogs(1);
+document.getElementById('logs-hasta').onchange = () => loadLogs(1);
+document.getElementById('logs-clear').onclick = () => {
+    for (const id of ['logs-q', 'logs-evento', 'logs-desde', 'logs-hasta']) document.getElementById(id).value = '';
+    loadLogs(1);
+    document.getElementById('logs-q').focus();
+};
 
 async function loadLogs(pagina) {
     const contenedor = document.getElementById('logs-container');
     const paginacion = document.getElementById('logs-pagination');
+    const filtros = filtrosBitacora();
+    document.getElementById('logs-clear').hidden = !filtros.activos;
+    filtros.params.set('page', pagina);
     try {
-        const d = await leerJson(await fetch('/api/logs?page=' + pagina));
-        pintarDescargaBitacora(d.total);
+        const d = await leerJson(await fetch('/api/logs?' + filtros.params));
+        pintarDescargaBitacora(d.total, filtros);
         if (!d.logs || !d.logs.length) {
-            contenedor.innerHTML = '<div class="empty-msg">La bitácora está vacía. Se llena sola con cada entrada y salida en los equipos.</div>';
+            contenedor.innerHTML = filtros.activos
+                ? `<div class="empty-msg">Ningún registro coincide${filtros.valores.q ? ` con "${escapar(filtros.valores.q)}"` : ''} en el periodo elegido.<br>
+                   <button type="button" class="btn-secondary" onclick="document.getElementById('logs-clear').click()">Limpiar filtros</button></div>`
+                : '<div class="empty-msg">La bitácora está vacía. Se llena sola con cada entrada y salida en los equipos.</div>';
             paginacion.innerHTML = '';
             return;
         }

@@ -629,3 +629,61 @@ def test_restaurar_pide_confirmacion_y_luego_muestra_el_resultado(navegador, ser
     assert any(metodo == "POST" and "restaurar" in ruta for metodo, ruta in peticiones)
     assert "12,431" in page.locator("#upload-msg").inner_text()
     assert "94,448" in page.locator("#padron-restore").inner_text()
+
+
+# ---------------------------------------------------------------------------
+# Buscar y filtrar en la bitacora
+# ---------------------------------------------------------------------------
+
+def ir_a_bitacora(page):
+    page.evaluate("setView('logs')")
+    page.wait_for_selector("#logs-container table")
+
+
+def test_buscar_en_bitacora_manda_el_texto_al_servidor_y_a_la_descarga(navegador, servidor):
+    page, peticiones = abrir(navegador, servidor)
+    ir_a_bitacora(page)
+
+    page.fill("#logs-q", "LAB-PC-01")
+    page.wait_for_timeout(600)   # espera al debounce
+
+    assert any("/api/logs?" in ruta and "q=LAB-PC-01" in ruta for _, ruta in peticiones)
+    assert "q=LAB-PC-01" in page.locator("#logs-export").get_attribute("href")
+    assert "909 registros" in page.locator("#logs-export-info").inner_text()
+
+
+def test_filtrar_por_evento_y_fechas_y_limpiar(navegador, servidor):
+    page, peticiones = abrir(navegador, servidor)
+    ir_a_bitacora(page)
+
+    page.select_option("#logs-evento", "salida")
+    page.fill("#logs-desde", "2026-09-01")
+    page.fill("#logs-hasta", "2026-09-18")
+    page.dispatch_event("#logs-hasta", "change")
+    page.wait_for_timeout(600)
+
+    ultima = [ruta for _, ruta in peticiones if "/api/logs?" in ruta][-1]
+    assert "evento=salida" in ultima and "desde=2026-09-01" in ultima and "hasta=2026-09-18" in ultima
+    assert "page=1" in ultima
+    assert page.locator("#logs-clear").is_visible()
+
+    page.click("#logs-clear")
+    page.wait_for_timeout(600)
+    ultima = [ruta for _, ruta in peticiones if "/api/logs?" in ruta][-1]
+    assert "evento=" not in ultima and "desde=" not in ultima
+    assert page.input_value("#logs-q") == ""
+    assert not page.locator("#logs-clear").is_visible()
+
+
+def test_sin_resultados_con_filtros_lo_dice_y_ofrece_limpiar(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    ir_a_bitacora(page)
+    page.route("**/api/logs?*", lambda r: r.fulfill(json={"logs": [], "current_page": 1, "total_pages": 1, "total": 0}))
+
+    page.fill("#logs-q", "nadie")
+    page.wait_for_timeout(600)
+
+    texto = page.locator("#logs-container").inner_text()
+    assert "ningún registro" in texto.lower()
+    assert "nadie" in texto
+    assert page.locator("#logs-export").get_attribute("aria-disabled") == "true"

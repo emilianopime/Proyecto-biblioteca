@@ -250,6 +250,23 @@
                 </div>
                 <div class="panel">
                     <h2 class="panel-title">Registros</h2>
+                    <form class="filtros" id="logs-filtros" onsubmit="return false" aria-label="Buscar y filtrar la bitácora">
+                        <label class="campo campo-buscar">
+                            <span>Buscar</span>
+                            <input type="search" id="logs-q" placeholder="Equipo, matrícula o nombre del alumno" autocomplete="off">
+                        </label>
+                        <label class="campo">
+                            <span>Evento</span>
+                            <select id="logs-evento">
+                                <option value="">Entradas y salidas</option>
+                                <option value="entrada">Solo entradas</option>
+                                <option value="salida">Solo salidas</option>
+                            </select>
+                        </label>
+                        <label class="campo"><span>Desde</span><input type="date" id="logs-desde"></label>
+                        <label class="campo"><span>Hasta</span><input type="date" id="logs-hasta"></label>
+                        <button type="button" class="btn-secondary" id="logs-clear" hidden>Limpiar filtros</button>
+                    </form>
                     <div id="logs-container"><div class="empty-msg">Cargando...</div></div>
                     <div class="pagination" id="logs-pagination"></div>
                 </div>
