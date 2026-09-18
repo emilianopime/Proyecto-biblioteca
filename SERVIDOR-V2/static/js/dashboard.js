@@ -22,7 +22,6 @@ fileInput.onchange = () => enviarCsv(fileInput.files[0]);
 function enviarCsv(file) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('table_name', document.getElementById('tableName').value || 'alumnos');
 
     msg.textContent  = 'Procesando en base de datos...';
     msg.style.color  = '';

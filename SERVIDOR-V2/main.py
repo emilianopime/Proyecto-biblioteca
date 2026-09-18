@@ -30,11 +30,11 @@ import io
 import threading
 import time
 from datetime import datetime, timedelta
-import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session, Response
 from auth import auth_bp, login_required
+from padron import PadronInvalido, agregar_invitado, cargar_padron, leer_padron
 load_dotenv()
 import logging
 
@@ -226,57 +226,6 @@ crear_tabla_computadoras()
 cargar_computadoras_conocidas()
 threading.Thread(target=check_computers_status, daemon=True).start()
 
-# ---------------------------------------------------------------------------
-# Logica de negocio: procesamiento del CSV de alumnos
-# ---------------------------------------------------------------------------
-
-def procesar_csv(archivo, tabla):
-    df = pd.read_csv(archivo, encoding="latin-1", dtype=str)
-
-    # Convertir matricula a numero entero, descartar filas invalidas
-    df["cardnumber"] = pd.to_numeric(df["cardnumber"], errors="coerce").fillna(0).astype("int64")
-    df = df.drop_duplicates(subset=["cardnumber"], keep="first")
-
-    # El campo 'surname' a veces viene como "Apellido, Nombre" en un solo campo
-    df["surname"] = df["surname"].astype(str)
-    mask = df["surname"].str.contains(",", na=False)
-
-    # Manejo de separaciones por coma o espacio
-    df.loc[mask, ["surname", "firstname"]] = df.loc[mask, "surname"].str.split(",", n=1, expand=True).values
-    df.loc[~mask, ["surname", "firstname"]] = df.loc[~mask, "surname"].str.rsplit(" ", n=1, expand=True).values
-
-    # Normalizar capitalización: "GARCIA LOPEZ" → "Garcia Lopez"
-    df["surname"] = df["surname"].astype(str).str.strip().str.title()
-    df["firstname"] = df["firstname"].astype(str).str.strip().str.title()
-    df["sort1"] = df["sort1"].fillna("Sin Profesion").astype(str).str.strip().str.title()
-    # Seleccionar las columnas finales
-    df = df[["cardnumber", "surname", "firstname", "sort1"]]
-    datos_invitado = pd.DataFrame([{
-        "cardnumber": 10203,
-        "surname": "Invitado",  # Puedes personalizar el apellido
-        "firstname": "Especial",  # Puedes personalizar el nombre
-        "sort1": "Invitado"  # O usar "Sin Profesion"
-    }])
-    df = pd.concat([df, datos_invitado], ignore_index=True)
-# -------------------------------------------------------------------
-    conn = psycopg2.connect(**DB_CONFIG)
-    cursor = conn.cursor()
-    # Crear la tabla si no existe y limpiarla antes de cargar
-    cursor.execute(
-        f'CREATE TABLE IF NOT EXISTS "{tabla}" '
-        f'(cardnumber BIGINT PRIMARY KEY, surname TEXT, firstname TEXT, sort1 TEXT);'
-    )
-    cursor.execute(f'TRUNCATE TABLE "{tabla}";')
-
-    # Cargar con COPY desde un buffer en memoria
-    buffer = io.StringIO()
-    df.to_csv(buffer, index=False, header=False)
-    buffer.seek(0)
-    cursor.copy_expert(f'COPY "{tabla}" FROM STDIN WITH (FORMAT CSV)', buffer)
-
-    conn.commit()
-    cursor.close()
-    conn.close()
 # ===========================================================================
 # RUTAS DEL DASHBOARD (protegidas — requieren sesion activa)
 # ===========================================================================
@@ -289,16 +238,32 @@ def index():
 @login_required
 def upload():
     """
-    Recibe un archivo CSV y lo carga en la tabla de alumnos.
+    Recibe el CSV del padron, lo valida y reemplaza la tabla alumnos.
     El archivo se procesa en memoria; nunca se escribe en disco.
+    Si el archivo no tiene la forma esperada responde 400 con el motivo
+    y la base de datos no se toca.
     """
-    file       = request.files.get("file")
-    table_name = request.form.get("table_name", "alumnos")
+    archivo = request.files.get("file")
+    if archivo is None or archivo.filename == "":
+        return jsonify({"error": "No se recibio ningun archivo"}), 400
+
     try:
-        procesar_csv(file, table_name)
-        return jsonify({"message": f"Exito: datos cargados en '{table_name}'"})
+        df = leer_padron(archivo.stream)
+    except PadronInvalido as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"No se pudo leer el archivo: {e}"}), 400
+
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        try:
+            cargar_padron(agregar_invitado(df), conn)
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({"error": f"Error al guardar en la base de datos: {e}"}), 500
+
+    return jsonify({"message": f"Exito: se cargaron {len(df)} alumnos"})
 
 @app.route("/api/computers")
 @login_required
