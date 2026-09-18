@@ -534,3 +534,45 @@ def test_con_bitacora_vacia_no_hay_nada_que_descargar(navegador, servidor):
 
     assert page.locator("#logs-export").get_attribute("aria-disabled") == "true"
     assert "nada que descargar" in page.locator("#logs-export-info").inner_text().lower()
+
+
+# ---------------------------------------------------------------------------
+# Generar reporte desde Estadisticas
+# ---------------------------------------------------------------------------
+
+def test_el_bloque_de_reporte_ofrece_periodo_y_tres_salidas(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("setView('stats')")
+    page.wait_for_selector("#reporte-form")
+
+    page.select_option("#reporte-periodo", "mes-anterior")
+    ver = page.locator("#reporte-ver").get_attribute("href")
+    pdf = page.locator("#reporte-pdf").get_attribute("href")
+    xlsx = page.locator("#reporte-xlsx").get_attribute("href")
+
+    assert ver.startswith("/reporte?") and "periodo=mes-anterior" in ver
+    assert pdf.startswith("/reporte.pdf?") and "periodo=mes-anterior" in pdf
+    assert xlsx.startswith("/reporte.xlsx?") and "periodo=mes-anterior" in xlsx
+    assert page.locator("#reporte-ver").get_attribute("target") == "_blank"
+
+
+def test_el_rango_de_fechas_solo_aparece_al_elegir_rango_y_se_valida(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("setView('stats')")
+    page.wait_for_selector("#reporte-form")
+
+    assert not page.locator("#reporte-fechas").is_visible()
+    page.select_option("#reporte-periodo", "rango")
+    assert page.locator("#reporte-fechas").is_visible()
+
+    page.fill("#reporte-desde", "2026-09-10")
+    page.fill("#reporte-hasta", "2026-09-01")
+    page.dispatch_event("#reporte-hasta", "change")
+    assert page.locator("#reporte-ver").get_attribute("aria-disabled") == "true"
+    assert "posterior" in page.locator("#reporte-aviso").inner_text()
+
+    page.fill("#reporte-hasta", "2026-09-18")
+    page.dispatch_event("#reporte-hasta", "change")
+    assert page.locator("#reporte-ver").get_attribute("aria-disabled") == "false"
+    assert "desde=2026-09-10" in page.locator("#reporte-xlsx").get_attribute("href")
+    assert "hasta=2026-09-18" in page.locator("#reporte-xlsx").get_attribute("href")

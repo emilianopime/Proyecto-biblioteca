@@ -473,6 +473,40 @@ async function loadStats() {
     }
 }
 
+/* ── Generar reporte ────────────────────────────────── */
+const reportePeriodo = document.getElementById('reporte-periodo');
+const reporteFechas  = document.getElementById('reporte-fechas');
+const reporteAviso   = document.getElementById('reporte-aviso');
+
+function actualizarReporte() {
+    const periodo = reportePeriodo.value;
+    const esRango = periodo === 'rango';
+    reporteFechas.hidden = !esRango;
+
+    const params = new URLSearchParams({ periodo });
+    let aviso = '';
+    if (esRango) {
+        const desde = document.getElementById('reporte-desde').value;
+        const hasta = document.getElementById('reporte-hasta').value;
+        if (!desde || !hasta) aviso = 'Elige las dos fechas del rango.';
+        else if (desde > hasta) aviso = 'La fecha inicial no puede ser posterior a la final.';
+        params.set('desde', desde);
+        params.set('hasta', hasta);
+    }
+    reporteAviso.textContent = aviso;
+    for (const [id, ruta] of [['reporte-ver', '/reporte'], ['reporte-pdf', '/reporte.pdf'], ['reporte-xlsx', '/reporte.xlsx']]) {
+        const enlace = document.getElementById(id);
+        enlace.href = `${ruta}?${params}`;
+        enlace.setAttribute('aria-disabled', String(Boolean(aviso)));
+        enlace.tabIndex = aviso ? -1 : 0;
+    }
+}
+
+reportePeriodo.onchange = actualizarReporte;
+document.getElementById('reporte-desde').onchange = actualizarReporte;
+document.getElementById('reporte-hasta').onchange = actualizarReporte;
+actualizarReporte();
+
 /* ── Bitacora ───────────────────────────────────────── */
 function pintarDescargaBitacora(total) {
     const enlace = document.getElementById('logs-export');

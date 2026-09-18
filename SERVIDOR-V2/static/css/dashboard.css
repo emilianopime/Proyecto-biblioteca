@@ -372,6 +372,22 @@ body::before {
 .stats-three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .stats-three-col .panel { margin-bottom: 0; min-width: 0; }
 
+/* ── Generar reporte ─────────────────────────────────── */
+.reporte-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.campo { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--text-2); }
+.campo select, .campo input {
+    min-height: 36px; padding: 0 10px; font: inherit; font-size: var(--fs-md); color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--r);
+    color-scheme: dark;
+}
+.campo select { min-width: 180px; cursor: pointer; }
+.campo select:focus, .campo input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.reporte-fechas { display: flex; gap: 12px; flex-wrap: wrap; }
+.reporte-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-primary[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.reporte-aviso { flex-basis: 100%; font-size: var(--fs-xs); color: var(--warning); min-height: 1em; }
+.reporte-aviso:empty { display: none; }
+
 /* ── Tablas ──────────────────────────────────────────── */
 .table-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
 .st-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: var(--fs-sm); }

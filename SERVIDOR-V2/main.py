@@ -35,6 +35,7 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session, Response
 from auth import auth_bp, login_required
 from padron import PadronInvalido, agregar_invitado, cargar_padron, leer_padron
+from reporte import PeriodoInvalido, calcular_reporte, horas_pico, inicio_semestre, rango_periodo, reporte_xlsx
 load_dotenv()
 import logging
 
@@ -328,7 +329,7 @@ def get_stats():
 
         cursor.execute(
             "SELECT COUNT(*) FROM bitacora_uso "
-            "WHERE evento = 'LOGIN' AND timestamp >= NOW() - INTERVAL '6 months'"
+            "WHERE evento = 'LOGIN' AND (timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua')::date >= %s", (inicio_semestre(datetime.now().date()),)
         )
         logins_semestre = cursor.fetchone()[0]
 
@@ -469,6 +470,77 @@ def get_logs():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Reporte de estadisticas por periodo: JSON, pagina imprimible, PDF y Excel
+# ---------------------------------------------------------------------------
+def _armar_reporte():
+    """Lee el periodo de la URL y calcula el reporte. Lanza PeriodoInvalido."""
+    desde, hasta, etiqueta = rango_periodo(
+        request.args.get("periodo", "mes"),
+        desde=request.args.get("desde"), hasta=request.args.get("hasta"),
+    )
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        return calcular_reporte(conn, desde, hasta, etiqueta)
+    finally:
+        conn.close()
+
+
+def _nombre_archivo(datos, extension):
+    p = datos["periodo"]
+    return f"reporte_laboratorio_{p['desde']}_{p['hasta']}.{extension}"
+
+
+def _html_reporte(datos, para_pdf=False):
+    return render_template("reporte.html", r=datos, picos=horas_pico(datos),
+                           max_hora=max(datos["horas"] or [1]) or 1,
+                           max_dia=max([d["total"] for d in datos["dias"]] or [1]) or 1,
+                           para_pdf=para_pdf, args=request.args)
+
+
+@app.route("/api/reporte")
+@login_required
+def api_reporte():
+    try:
+        return jsonify(_armar_reporte())
+    except PeriodoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/reporte")
+@login_required
+def reporte_html():
+    try:
+        return _html_reporte(_armar_reporte())
+    except PeriodoInvalido as e:
+        return render_template("reporte.html", error=str(e)), 400
+
+
+@app.route("/reporte.pdf")
+@login_required
+def reporte_pdf():
+    try:
+        datos = _armar_reporte()
+    except PeriodoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+    from weasyprint import HTML  # import tardio: carga librerias de sistema
+    pdf = HTML(string=_html_reporte(datos, para_pdf=True), base_url=request.url_root).write_pdf()
+    return Response(pdf, mimetype="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={_nombre_archivo(datos, 'pdf')}"})
+
+
+@app.route("/reporte.xlsx")
+@login_required
+def reporte_excel():
+    try:
+        datos = _armar_reporte()
+    except PeriodoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+    return Response(reporte_xlsx(datos),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f"attachment; filename={_nombre_archivo(datos, 'xlsx')}"})
 
 
 @app.route('/api/logs/export', methods=['GET'])

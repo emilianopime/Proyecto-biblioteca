@@ -175,6 +175,32 @@
                 </div>
 
                 <div class="panel">
+                    <h2 class="panel-title">Generar reporte</h2>
+                    <p class="help-text">Un documento con las cifras del periodo: entradas, alumnos distintos, equipos y carreras con más uso, y horas pico. Se puede ver en pantalla, imprimir, o descargar como PDF o Excel.</p>
+                    <form class="reporte-form" id="reporte-form" onsubmit="return false">
+                        <label class="campo">
+                            <span>Periodo</span>
+                            <select id="reporte-periodo">
+                                <option value="mes">Este mes</option>
+                                <option value="mes-anterior">Mes anterior</option>
+                                <option value="semestre">Este semestre</option>
+                                <option value="rango">Rango de fechas</option>
+                            </select>
+                        </label>
+                        <div class="reporte-fechas" id="reporte-fechas" hidden>
+                            <label class="campo"><span>Desde</span><input type="date" id="reporte-desde"></label>
+                            <label class="campo"><span>Hasta</span><input type="date" id="reporte-hasta"></label>
+                        </div>
+                        <div class="reporte-acciones">
+                            <a class="btn-primary" id="reporte-ver" href="/reporte?periodo=mes" target="_blank" rel="noopener" aria-disabled="false">Ver reporte</a>
+                            <a class="btn-secondary" id="reporte-pdf" href="/reporte.pdf?periodo=mes" aria-disabled="false">Descargar PDF</a>
+                            <a class="btn-secondary" id="reporte-xlsx" href="/reporte.xlsx?periodo=mes" aria-disabled="false">Descargar Excel</a>
+                        </div>
+                        <p class="reporte-aviso" id="reporte-aviso" role="status" aria-live="polite"></p>
+                    </form>
+                </div>
+
+                <div class="panel">
                     <h2 class="panel-title">Actividad reciente</h2>
                     <div id="st-recientes"><div class="empty-msg">Cargando...</div></div>
                 </div>

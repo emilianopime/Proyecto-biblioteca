@@ -188,6 +188,20 @@ Para agregar otro encabezado aceptado, edita el diccionario `ALIAS` en `SERVIDOR
 
 ---
 
+## 6. Reporte de uso por periodo
+
+En **Estadísticas**, el bloque *Generar reporte* permite elegir el periodo (este mes, mes anterior, semestre actual o un rango de fechas) y obtener el mismo contenido en tres formas:
+
+| Salida | Ruta | Uso |
+|---|---|---|
+| Página imprimible | `/reporte?periodo=...` | Se abre en el navegador; desde ahí se imprime o se guarda como PDF |
+| PDF | `/reporte.pdf?periodo=...` | Descarga directa, generado con WeasyPrint |
+| Excel | `/reporte.xlsx?periodo=...` | Una hoja por tabla: resumen, equipos, carreras, horas y días |
+
+El reporte incluye entradas del periodo, alumnos distintos, días con actividad, promedio por día, equipos más usados, carreras con más uso, horas del día con más uso y entradas por día. Para un rango se pasan `desde` y `hasta` en formato `AAAA-MM-DD`. El semestre es enero-julio o agosto-diciembre, y la tarjeta "Este semestre" de Estadísticas usa el mismo criterio.
+
+---
+
 ## Pruebas
 
 Las pruebas de lectura del CSV corren sin base de datos. Las de carga y del endpoint necesitan un Postgres y se saltan si no se define `TEST_DB_DSN`.
