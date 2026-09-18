@@ -360,6 +360,9 @@ body::before {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+#padron-anterior { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-dim); }
+#padron-restore { white-space: normal; text-align: left; height: auto; padding: 8px 14px; }
+
 /* ── Estadisticas ────────────────────────────────────── */
 .stats-summary {
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));

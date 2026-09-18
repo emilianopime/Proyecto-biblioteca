@@ -123,6 +123,18 @@
                 <div class="panel">
                     <h2 class="panel-title">Padrón actual</h2>
                     <p class="padron-count"><strong id="padron-count">–</strong> alumnos pueden iniciar sesión en los equipos.</p>
+                    <p class="help-text" id="padron-origen"></p>
+                    <div id="padron-anterior" hidden>
+                        <p class="help-text" id="padron-anterior-texto"></p>
+                        <button type="button" class="btn-secondary" id="padron-restore"></button>
+                        <div id="restore-confirm" class="confirm-box" tabindex="-1" hidden>
+                            <p id="restore-confirm-text"></p>
+                            <div class="confirm-actions">
+                                <button type="button" class="btn-primary" id="restore-confirm-btn">Restaurar el padrón anterior</button>
+                                <button type="button" class="btn-secondary" id="restore-cancel">Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="panel">

@@ -31,7 +31,7 @@ def app():
 @pytest.fixture
 def cliente(app):
     with psycopg2.connect(DSN) as conexion, conexion.cursor() as cur:
-        cur.execute("DROP TABLE IF EXISTS alumnos;")
+        cur.execute("DROP TABLE IF EXISTS alumnos, alumnos_anterior, padron_meta;")
         cur.execute(
             "CREATE TABLE alumnos (cardnumber BIGINT PRIMARY KEY, "
             "surname TEXT, firstname TEXT, sort1 TEXT);"
@@ -68,3 +68,23 @@ def test_sin_archivo_devuelve_400(cliente):
     r = cliente.post("/api/upload", data={}, content_type="multipart/form-data")
 
     assert r.status_code == 400
+
+
+def test_api_padron_informa_el_estado_y_permite_restaurar(cliente):
+    subir(cliente, "Carnet,Apellido(s),Nombre(s)\n1,PEREZ,JUAN\n")
+    subir(cliente, "Carnet,Apellido(s),Nombre(s)\n2,LOPEZ,ANA\n3,RUIZ,LUIS\n")
+
+    e = cliente.get("/api/padron").get_json()
+    assert e["total"] == 2 and e["anterior"]["total"] == 1
+    assert e["archivo"] == "padron.csv"
+
+    r = cliente.post("/api/padron/restaurar")
+    assert r.status_code == 200
+    assert r.get_json()["total"] == 1
+    assert cliente.get("/api/padron").get_json()["anterior"]["total"] == 2
+
+
+def test_restaurar_sin_anterior_devuelve_409(cliente):
+    r = cliente.post("/api/padron/restaurar")
+    assert r.status_code == 409
+    assert "anterior" in r.get_json()["error"]

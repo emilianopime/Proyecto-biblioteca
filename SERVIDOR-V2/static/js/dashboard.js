@@ -289,16 +289,69 @@ const confirmText = document.getElementById('upload-confirm-text');
 
 let archivoPendiente = null;
 let totalPadron = null;
+let padronAnterior = null;
+
+function fechaLegible(iso) {
+    // "2026-09-18 14:20" -> "18/09/2026 a las 14:20"
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(iso || '');
+    return m ? `${m[3]}/${m[2]}/${m[1]} a las ${m[4]}` : '';
+}
+
+function pintarEstadoPadron(e) {
+    totalPadron = e.total;
+    padronAnterior = e.anterior;
+    document.getElementById('padron-count').textContent = formatearNumero(e.total);
+    document.getElementById('padron-origen').textContent = e.archivo
+        ? `Cargado el ${fechaLegible(e.cargado_en)} desde ${e.archivo}.`
+        : '';
+    const bloque = document.getElementById('padron-anterior');
+    bloque.hidden = !e.anterior;
+    document.getElementById('restore-confirm').hidden = true;
+    if (e.anterior) {
+        document.getElementById('padron-anterior-texto').textContent =
+            `Se conserva el padrón que había antes${e.anterior.archivo ? `, cargado el ${fechaLegible(e.anterior.cargado_en)} desde ${e.anterior.archivo}` : ''}. Si el archivo nuevo fue un error, puedes volver a él.`;
+        document.getElementById('padron-restore').textContent =
+            `Restaurar el padrón anterior (${formatearNumero(e.anterior.total)} alumnos)`;
+    }
+}
 
 async function cargarConteoPadron() {
     try {
-        const d = await leerJson(await fetch('/api/stats'));
-        totalPadron = d.total_alumnos;
-        document.getElementById('padron-count').textContent = formatearNumero(totalPadron);
+        pintarEstadoPadron(await leerJson(await fetch('/api/padron')));
     } catch (e) {
         document.getElementById('padron-count').textContent = '–';
     }
 }
+
+document.getElementById('padron-restore').onclick = () => {
+    if (!padronAnterior) return;
+    mostrarMensaje('', '');
+    document.getElementById('restore-confirm-text').innerHTML =
+        `Vas a volver al padrón anterior de <strong>${formatearNumero(padronAnterior.total)}</strong> alumnos y quitar el actual de <strong>${formatearNumero(totalPadron)}</strong>. El actual queda guardado, así que puedes deshacerlo con este mismo botón.`;
+    const caja = document.getElementById('restore-confirm');
+    caja.hidden = false;
+    caja.focus();
+};
+document.getElementById('restore-cancel').onclick = () => {
+    document.getElementById('restore-confirm').hidden = true;
+    document.getElementById('padron-restore').focus();
+};
+document.getElementById('restore-confirm-btn').onclick = async () => {
+    const boton = document.getElementById('restore-confirm-btn');
+    boton.disabled = true;
+    mostrarMensaje('procesando', 'Restaurando el padrón anterior...');
+    try {
+        const e = await leerJson(await fetch('/api/padron/restaurar', { method: 'POST' }));
+        pintarEstadoPadron(e);
+        mostrarMensaje('exito', `Padrón restaurado: ${formatearNumero(e.total)} alumnos.`,
+            e.archivo ? `Es el que se había cargado desde ${e.archivo}.` : '');
+    } catch (err) {
+        if (err.message === 'Sesión expirada') return;
+        mostrarMensaje('error', 'No se pudo restaurar el padrón.', `${err.message}. El padrón actual sigue intacto.`);
+    } finally {
+        boton.disabled = false;
+    }
+};
 
 zone.onclick = () => fileInput.click();
 zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('hover'); };

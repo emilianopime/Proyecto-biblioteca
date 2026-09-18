@@ -180,7 +180,7 @@ Reglas de limpieza:
 - Nombres, apellidos y carreras se guardan con la primera letra de cada palabra en mayúscula.
 - Al final se agrega el usuario invitado definido en el `.env` (ver sección 1).
 
-Si el archivo no trae matrícula o apellido, el dashboard muestra qué columna faltó y cuáles sí traía el archivo, y la base de datos no se toca. Si se pierde la conexión a media carga, el dashboard lo dice y ofrece reintentar. La carga reemplaza el padrón completo cada vez.
+Cada carga conserva el padrón que había antes en la tabla `alumnos_anterior`; desde la misma pantalla se puede **restaurar el padrón anterior** si el archivo nuevo fue un error, y el reemplazado queda guardado a su vez. Si el archivo no trae matrícula o apellido, el dashboard muestra qué columna faltó y cuáles sí traía el archivo, y la base de datos no se toca. Si se pierde la conexión a media carga, el dashboard lo dice y ofrece reintentar. La carga reemplaza el padrón completo cada vez.
 
 > Nota: el export de la biblioteca a veces trae nombre y apellido intercambiados en algunas filas. El servidor los guarda tal como vienen; el kiosko y el dashboard muestran siempre nombre y apellido juntos, así que solo cambia el orden en que se leen.
 

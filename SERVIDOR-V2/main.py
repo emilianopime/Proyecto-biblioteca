@@ -34,7 +34,8 @@ import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session, Response
 from auth import auth_bp, login_required
-from padron import PadronInvalido, agregar_invitado, cargar_padron, leer_padron
+from padron import (PadronInvalido, SinPadronAnterior, agregar_invitado, cargar_padron,
+                    estado_padron, leer_padron, restaurar_padron)
 from reporte import PeriodoInvalido, calcular_reporte, horas_pico, inicio_semestre, rango_periodo, reporte_xlsx
 load_dotenv()
 import logging
@@ -258,13 +259,37 @@ def upload():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         try:
-            cargar_padron(agregar_invitado(df), conn)
+            cargar_padron(agregar_invitado(df), conn, archivo=archivo.filename)
         finally:
             conn.close()
     except Exception as e:
         return jsonify({"error": f"Error al guardar en la base de datos: {e}"}), 500
 
     return jsonify({"message": f"Exito: se cargaron {len(df)} alumnos"})
+
+@app.route("/api/padron")
+@login_required
+def api_padron():
+    """Estado del padron: cuantos alumnos, de que archivo, y si hay uno anterior."""
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        return jsonify(estado_padron(conn))
+    finally:
+        conn.close()
+
+
+@app.route("/api/padron/restaurar", methods=["POST"])
+@login_required
+def api_padron_restaurar():
+    """Vuelve al padron anterior. El actual queda guardado como anterior."""
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        return jsonify(restaurar_padron(conn))
+    except SinPadronAnterior as e:
+        return jsonify({"error": str(e)}), 409
+    finally:
+        conn.close()
+
 
 @app.route("/api/computers")
 @login_required

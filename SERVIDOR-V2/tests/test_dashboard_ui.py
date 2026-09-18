@@ -51,6 +51,9 @@ STATS = {
     "top_carreras_uso": [{"carrera": "Invitado", "total": 3}],
 }
 LOGS = {"logs": STATS["recientes"], "current_page": 1, "total_pages": 46, "total": 909}
+PADRON = {"total": 94448, "cargado_en": "2026-09-18 14:20", "archivo": "padron_2026B.csv",
+          "anterior": {"total": 12431, "cargado_en": "2026-08-12 09:05", "archivo": "padron_2026A.csv"}}
+PADRON_SIN_ANTERIOR = {"total": 94448, "cargado_en": None, "archivo": None, "anterior": None}
 
 
 @pytest.fixture(scope="module")
@@ -80,7 +83,7 @@ def navegador():
         b.close()
 
 
-def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_sesion=True, upload=None):
+def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_sesion=True, upload=None, padron=PADRON):
     """Abre el dashboard con respuestas de API simuladas y devuelve (page, peticiones)."""
     ctx = navegador.new_context(viewport={"width": ancho, "height": alto}, locale="es-MX")
     if con_sesion:
@@ -97,6 +100,11 @@ def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_s
                       "online": sum(1 for c in lista if c["status"] == "online"),
                       "offline": sum(1 for c in lista if c["status"] == "offline")}
             return route.fulfill(json=cuerpo)
+        if "/api/padron/restaurar" in url:
+            nuevo_estado = {**padron["anterior"], "anterior": {k: padron[k] for k in ("total", "cargado_en", "archivo")}}
+            return route.fulfill(json=nuevo_estado)
+        if "/api/padron" in url:
+            return route.fulfill(json=padron)
         if "/api/stats" in url:
             return route.fulfill(json=STATS)
         if "/api/logs" in url:
@@ -576,3 +584,48 @@ def test_el_rango_de_fechas_solo_aparece_al_elegir_rango_y_se_valida(navegador, 
     assert page.locator("#reporte-ver").get_attribute("aria-disabled") == "false"
     assert "desde=2026-09-10" in page.locator("#reporte-xlsx").get_attribute("href")
     assert "hasta=2026-09-18" in page.locator("#reporte-xlsx").get_attribute("href")
+
+
+# ---------------------------------------------------------------------------
+# Restaurar el padron anterior
+# ---------------------------------------------------------------------------
+
+def test_padron_muestra_de_donde_salio_y_ofrece_restaurar_el_anterior(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    ir_a_padron(page)
+    page.wait_for_selector("#padron-restore")
+
+    texto = page.locator("#view-padron").inner_text()
+    assert "94,448" in texto and "padron_2026B.csv" in texto
+    assert "12,431" in page.locator("#padron-restore").inner_text()
+
+
+def test_sin_padron_anterior_no_se_ofrece_restaurar(navegador, servidor):
+    page, _ = abrir(navegador, servidor, padron=PADRON_SIN_ANTERIOR)
+    ir_a_padron(page)
+    page.wait_for_selector("#padron-count:not(:has-text('–'))")
+
+    assert not page.locator("#padron-restore").is_visible()
+
+
+def test_restaurar_pide_confirmacion_y_luego_muestra_el_resultado(navegador, servidor):
+    page, peticiones = abrir(navegador, servidor)
+    ir_a_padron(page)
+    page.wait_for_selector("#padron-restore")
+
+    page.click("#padron-restore")
+    confirmacion = page.locator("#restore-confirm")
+    assert confirmacion.is_visible()
+    assert "12,431" in confirmacion.inner_text() and "94,448" in confirmacion.inner_text()
+    assert not any("restaurar" in ruta for _, ruta in peticiones)
+
+    page.click("#restore-cancel")
+    assert not confirmacion.is_visible()
+
+    page.click("#padron-restore")
+    page.click("#restore-confirm-btn")
+    page.wait_for_selector("#upload-msg.exito")
+
+    assert any(metodo == "POST" and "restaurar" in ruta for metodo, ruta in peticiones)
+    assert "12,431" in page.locator("#upload-msg").inner_text()
+    assert "94,448" in page.locator("#padron-restore").inner_text()
