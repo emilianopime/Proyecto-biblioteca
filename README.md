@@ -66,6 +66,13 @@ SECRET_KEY=genera-una-con: python -c "import secrets; print(secrets.token_hex(32
 # Credenciales del dashboard web
 DASHBOARD_USER=admin
 DASHBOARD_PASSWORD=tu_contraseña_segura
+
+# Usuario invitado que se agrega al padrón en cada carga (opcional)
+# Deja INVITADO_CARDNUMBER vacío para no agregar ninguno.
+INVITADO_CARDNUMBER=10203
+INVITADO_NOMBRE=Especial
+INVITADO_APELLIDO=Invitado
+INVITADO_CARRERA=Invitado
 ```
 
 ---
@@ -153,16 +160,49 @@ El cliente abre una ventana en modo kiosko a pantalla completa que:
 
 ## 5. Cargar el padrón de alumnos
 
-Desde el dashboard (`http://localhost:8000`), ve a **Carga de alumnos** y arrastra el archivo CSV del padrón. El CSV debe tener las columnas:
+Desde el dashboard (`http://localhost:8000`), ve a **Carga de alumnos** y arrastra el archivo CSV que exporta el sistema de la biblioteca. Se puede subir tal cual: las columnas que no se usan se ignoran.
 
-| Columna      | Descripción                        |
-|--------------|------------------------------------|
-| `cardnumber` | Matrícula del alumno               |
-| `surname`    | Apellido(s)                        |
-| `firstname`  | Nombre(s)                          |
-| `sort1`      | Carrera / profesión                |
+El servidor reconoce las columnas por nombre, sin importar mayúsculas, acentos ni paréntesis:
 
-La carga reemplaza el padrón completo cada vez.
+| Campo     | Encabezados aceptados                    | Obligatorio |
+|-----------|------------------------------------------|-------------|
+| Matrícula | `Carnet`, `cardnumber`, `matricula`      | Sí          |
+| Apellido  | `Apellido(s)`, `apellido`, `surname`     | Sí          |
+| Nombre    | `Nombre(s)`, `nombre`, `firstname`       | No          |
+| Carrera   | `Carrera`, `sort1`, `profesion`          | No          |
+
+Reglas de limpieza:
+
+- Se aceptan archivos en UTF-8 (con o sin BOM) y en latin-1, separados por coma, punto y coma, tabulador o barra.
+- Las filas cuya matrícula no sea un número se descartan. Si una matrícula se repite, se conserva la primera.
+- Si no viene la columna de nombre pero el apellido trae la forma `Apellido, Nombre`, se separa por la coma.
+- Si la carrera viene vacía o no existe la columna, se guarda `Sin Profesion`.
+- Nombres, apellidos y carreras se guardan con la primera letra de cada palabra en mayúscula.
+- Al final se agrega el usuario invitado definido en el `.env` (ver sección 1).
+
+Si el archivo no trae matrícula o apellido, el dashboard muestra qué columna faltó y cuáles sí traía el archivo, y la base de datos no se toca. La carga reemplaza el padrón completo cada vez.
+
+> Nota: el export de la biblioteca a veces trae nombre y apellido intercambiados en algunas filas. El servidor los guarda tal como vienen; el kiosko y el dashboard muestran siempre nombre y apellido juntos, así que solo cambia el orden en que se leen.
+
+Para agregar otro encabezado aceptado, edita el diccionario `ALIAS` en `SERVIDOR-V2/padron.py`.
+
+---
+
+## Pruebas
+
+Las pruebas de lectura del CSV corren sin base de datos. Las de carga y del endpoint necesitan un Postgres y se saltan si no se define `TEST_DB_DSN`.
+
+```bash
+cd SERVIDOR-V2
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+.venv/bin/python -m pytest tests
+
+# Con base de datos (Postgres desechable en Docker):
+docker run -d --rm --name padron-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16
+TEST_DB_DSN="host=localhost port=55432 user=postgres password=test dbname=postgres" .venv/bin/python -m pytest tests
+docker stop padron-test-pg
+```
 
 ---
 
