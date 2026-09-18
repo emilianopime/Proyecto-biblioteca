@@ -474,11 +474,24 @@ async function loadStats() {
 }
 
 /* ── Bitacora ───────────────────────────────────────── */
+function pintarDescargaBitacora(total) {
+    const enlace = document.getElementById('logs-export');
+    const info = document.getElementById('logs-export-info');
+    if (total == null) return;
+    const vacia = total === 0;
+    enlace.setAttribute('aria-disabled', String(vacia));
+    enlace.tabIndex = vacia ? -1 : 0;
+    info.textContent = vacia
+        ? 'La bitácora está vacía, no hay nada que descargar'
+        : `${formatearNumero(total)} ${total === 1 ? 'registro' : 'registros'} en un archivo CSV para abrir en Excel`;
+}
+
 async function loadLogs(pagina) {
     const contenedor = document.getElementById('logs-container');
     const paginacion = document.getElementById('logs-pagination');
     try {
         const d = await leerJson(await fetch('/api/logs?page=' + pagina));
+        pintarDescargaBitacora(d.total);
         if (!d.logs || !d.logs.length) {
             contenedor.innerHTML = '<div class="empty-msg">La bitácora está vacía. Se llena sola con cada entrada y salida en los equipos.</div>';
             paginacion.innerHTML = '';

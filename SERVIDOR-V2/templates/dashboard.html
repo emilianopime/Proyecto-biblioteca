@@ -202,10 +202,13 @@
                         <h1 id="titulo-logs">Bitácora</h1>
                         <p>Cada entrada y salida de los alumnos en los equipos, de la más reciente a la más antigua.</p>
                     </div>
-                    <a class="btn-secondary" href="/api/logs/export">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Exportar CSV
-                    </a>
+                    <div class="export-block">
+                        <a class="btn-secondary" id="logs-export" href="/api/logs/export" aria-describedby="logs-export-info">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Descargar bitácora completa
+                        </a>
+                        <span class="export-info" id="logs-export-info">Archivo CSV para abrir en Excel</span>
+                    </div>
                 </div>
                 <div class="panel">
                     <h2 class="panel-title">Registros</h2>

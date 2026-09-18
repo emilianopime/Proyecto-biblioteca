@@ -50,7 +50,7 @@ STATS = {
     "dist_carreras": [{"carrera": "Licenciatura En Administracion De Empresas", "total": 6778}],
     "top_carreras_uso": [{"carrera": "Invitado", "total": 3}],
 }
-LOGS = {"logs": STATS["recientes"], "current_page": 1, "total_pages": 1}
+LOGS = {"logs": STATS["recientes"], "current_page": 1, "total_pages": 46, "total": 909}
 
 
 @pytest.fixture(scope="module")
@@ -513,3 +513,24 @@ def test_con_servidor_sano_no_se_muestra_el_aviso_de_sin_conexion(navegador, ser
 
     assert not page.locator("#server-warning").is_visible()
     assert "actualizado" in page.locator("#refresh-info").inner_text()
+
+
+def test_el_boton_de_descarga_dice_que_se_lleva_y_cuantos_registros(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("setView('logs')")
+    page.wait_for_selector("#logs-container table")
+
+    boton = page.locator("#logs-export")
+    assert "Descargar bitácora completa" in boton.inner_text()
+    assert "909 registros" in page.locator("#logs-export-info").inner_text()
+    assert boton.get_attribute("href") == "/api/logs/export"
+
+
+def test_con_bitacora_vacia_no_hay_nada_que_descargar(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.route("**/api/logs*", lambda r: r.fulfill(json={"logs": [], "current_page": 1, "total_pages": 1, "total": 0}))
+    page.evaluate("setView('logs')")
+    page.wait_for_timeout(400)
+
+    assert page.locator("#logs-export").get_attribute("aria-disabled") == "true"
+    assert "nada que descargar" in page.locator("#logs-export-info").inner_text().lower()

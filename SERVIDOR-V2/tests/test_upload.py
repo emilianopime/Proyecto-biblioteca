@@ -21,6 +21,9 @@ def app():
         "DB_NAME": partes["dbname"], "INVITADO_CARDNUMBER": "",
     })
     import main
+    # La app pudo haberse importado antes sin base de datos; fijar la conexion aqui.
+    main.DB_CONFIG = {"host": partes["host"], "port": partes["port"], "user": partes["user"],
+                      "password": partes["password"], "database": partes["dbname"]}
     main.app.config["TESTING"] = True
     return main.app
 

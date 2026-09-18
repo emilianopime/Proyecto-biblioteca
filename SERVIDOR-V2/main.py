@@ -462,6 +462,7 @@ def get_logs():
 
         return jsonify({
             "logs":         logs,
+            "total":        total_records,
             "current_page": page,
             "total_pages":  total_pages if total_pages > 0 else 1
         })
