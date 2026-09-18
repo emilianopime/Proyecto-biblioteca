@@ -3,59 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UACH - Iniciar sesion</title>
+    <title>Iniciar sesión — Control de Laboratorio</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 </head>
 <body>
 
-    <div class="login-wrapper">
+    <main class="login-wrapper">
 
         <div class="login-header">
-            <span class="brand-icon">🖥️</span>
-            <div class="brand-title">Control de Laboratorio</div>
-            <div class="brand-subtitle">Universidad Autonoma de Chihuahua</div>
+            <div class="brand-mark" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <div class="brand-text">
+                <h1 class="brand-title">Control de Laboratorio</h1>
+                <p class="brand-subtitle">Universidad Autónoma de Chihuahua</p>
+            </div>
         </div>
 
-        <div class="login-card">
-            <h2>Acceso administrativo</h2>
+        <form class="login-card" method="POST" action="/login" novalidate>
+            <h2>Acceso del personal</h2>
 
             {% if error %}
-                <div class="error-msg">{{ error }}</div>
+                <div class="error-msg" role="alert">{{ error }}</div>
             {% endif %}
 
-            <form method="POST" action="/login">
-                <div class="field">
-                    <label for="username">Usuario</label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        placeholder="Ingresa tu usuario"
-                        autocomplete="username"
-                        autofocus
-                        required
-                    >
-                </div>
+            <div class="field">
+                <label for="username">Usuario</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    value="{{ username or '' }}"
+                    autocomplete="username"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    {% if not username %}autofocus{% endif %}
+                    required
+                >
+            </div>
 
-                <div class="field">
-                    <label for="password">Contrasena</label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        placeholder="Ingresa tu contrasena"
-                        autocomplete="current-password"
-                        required
-                    >
-                </div>
+            <div class="field">
+                <label for="password">Contraseña</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    autocomplete="current-password"
+                    {% if username %}autofocus{% endif %}
+                    required
+                >
+            </div>
 
-                <button type="submit" class="btn-login">Iniciar sesion</button>
-            </form>
-        </div>
+            <button type="submit" class="btn-login">Iniciar sesión</button>
+        </form>
 
-        <div class="login-footer">UACH &mdash; Sistema de monitoreo de laboratorio</div>
+        <p class="login-footer">Sistema de monitoreo del laboratorio de la biblioteca</p>
 
-    </div>
+    </main>
 
 </body>
 </html>

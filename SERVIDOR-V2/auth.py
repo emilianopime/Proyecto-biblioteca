@@ -80,6 +80,7 @@ def login():
         return redirect(url_for("index"))
 
     error = None
+    usuario_ingresado = ""
 
     if request.method == "POST":
         usuario_ingresado    = request.form.get("username", "").strip()
@@ -94,9 +95,9 @@ def login():
             session["username"]      = usuario_ingresado
             return redirect(url_for("index"))
 
-        error = "Usuario o contrasena incorrectos."
+        error = "Usuario o contraseña incorrectos. Revisa los datos e intenta de nuevo."
 
-    return render_template("login.html", error=error)
+    return render_template("login.html", error=error, username=usuario_ingresado)
 
 
 @auth_bp.route("/logout")
