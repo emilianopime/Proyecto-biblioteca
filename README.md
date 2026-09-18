@@ -160,7 +160,7 @@ El cliente abre una ventana en modo kiosko a pantalla completa que:
 
 ## 5. Cargar el padrón de alumnos
 
-Desde el dashboard (`http://localhost:8000`), ve a **Carga de alumnos** y arrastra el archivo CSV que exporta el sistema de la biblioteca. Se puede subir tal cual: las columnas que no se usan se ignoran.
+Desde el dashboard (`http://localhost:8000`), ve al módulo **Padrón**, elige o arrastra el archivo CSV que exporta el sistema de la biblioteca y confirma el reemplazo. Se puede subir tal cual: las columnas que no se usan se ignoran. La misma pantalla muestra cuántos alumnos tiene el padrón actual.
 
 El servidor reconoce las columnas por nombre, sin importar mayúsculas, acentos ni paréntesis:
 
@@ -180,7 +180,7 @@ Reglas de limpieza:
 - Nombres, apellidos y carreras se guardan con la primera letra de cada palabra en mayúscula.
 - Al final se agrega el usuario invitado definido en el `.env` (ver sección 1).
 
-Si el archivo no trae matrícula o apellido, el dashboard muestra qué columna faltó y cuáles sí traía el archivo, y la base de datos no se toca. La carga reemplaza el padrón completo cada vez.
+Si el archivo no trae matrícula o apellido, el dashboard muestra qué columna faltó y cuáles sí traía el archivo, y la base de datos no se toca. Si se pierde la conexión a media carga, el dashboard lo dice y ofrece reintentar. La carga reemplaza el padrón completo cada vez.
 
 > Nota: el export de la biblioteca a veces trae nombre y apellido intercambiados en algunas filas. El servidor los guarda tal como vienen; el kiosko y el dashboard muestran siempre nombre y apellido juntos, así que solo cambia el orden en que se leen.
 
