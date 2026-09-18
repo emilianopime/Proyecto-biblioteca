@@ -1,0 +1,11 @@
+# Credenciales y variables de entorno — nunca subir al repositorio
+.env
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Entorno virtual de Python
+.venv/
+__pycache__/
+*.pyc

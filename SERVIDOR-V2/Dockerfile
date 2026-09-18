@@ -2,14 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Instalar dependencias primero para aprovechar la caché
 COPY requirements.txt .
-
-# Instalamos  dependencias
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copiar el resto del código
 COPY . .
-# Exponemos el puerto 8000 que usa tu servidor Flask
+
 EXPOSE 8000
-RUN chmod 777 /app
-# El comando que ejecutará el contenedor al iniciar
+
+# Comando original usando Werkzeug (Flask dev server)
 CMD ["python", "main.py"]

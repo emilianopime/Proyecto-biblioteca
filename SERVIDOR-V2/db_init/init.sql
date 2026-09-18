@@ -10,13 +10,12 @@ CREATE TABLE bitacora_uso (
     computer_id TEXT,
     matricula   BIGINT,
     evento      TEXT,
-    fecha_hora  TIMESTAMP DEFAULT NOW()
+    timestamp   TIMESTAMP DEFAULT NOW()
 );
-
 
 CREATE TABLE computadoras (
     id             TEXT PRIMARY KEY,
-    nombre         TEXT,
-    ip_ultima      TEXT,
-    fecha_registro TIMESTAMP DEFAULT NOW()
+    name           TEXT,
+    ip             TEXT,
+    last_heartbeat TIMESTAMP WITHOUT TIME ZONE
 );

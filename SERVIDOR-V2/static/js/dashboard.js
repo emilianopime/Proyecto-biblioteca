@@ -1,90 +1,104 @@
-// ==========================================
-// 1. LÓGICA DE CARGA CSV
-// ==========================================
-const zone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('fileInput');
-const msg = document.getElementById('upload-msg');
+/* ── SVG icons ──────────────────────────────────────────── */
+const ICON_LOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+const ICON_USER = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+const ICON_HELP = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>`;
+const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 
-if(zone) {
-    zone.onclick = () => fileInput.click();
-    zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('hover'); };
-    zone.ondragleave = () => zone.classList.remove('hover');
-    zone.ondrop = (e) => {
-        e.preventDefault();
-        zone.classList.remove('hover');
-        enviarCsv(e.dataTransfer.files[0]);
-    };
-    fileInput.onchange = () => enviarCsv(fileInput.files[0]);
-}
+/* ── CSV upload ─────────────────────────────────────────── */
+const zone      = document.getElementById('drop-zone');
+const fileInput = document.getElementById('fileInput');
+const msg       = document.getElementById('upload-msg');
+
+zone.onclick    = () => fileInput.click();
+zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('hover'); };
+zone.ondragleave = () => zone.classList.remove('hover');
+zone.ondrop = (e) => {
+    e.preventDefault();
+    zone.classList.remove('hover');
+    enviarCsv(e.dataTransfer.files[0]);
+};
+fileInput.onchange = () => enviarCsv(fileInput.files[0]);
 
 function enviarCsv(file) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('table_name', document.getElementById('tableName').value || 'alumnos');
 
-    msg.innerText = "Procesando en base de datos...";
+    msg.textContent  = 'Procesando en base de datos...';
+    msg.style.color  = '';
+
     fetch('/api/upload', { method: 'POST', body: formData })
-    .then(r => r.json())
-    .then(data => {
-        msg.innerText = data.message || data.error;
-        msg.style.color = data.error ? "red" : "green";
-    });
+        .then(r => r.json())
+        .then(data => {
+            msg.textContent = data.message || data.error;
+            msg.style.color = data.error ? '#f43f5e' : '#10b981';
+        });
 }
 
-// ==========================================
-// 2. LÓGICA DE MONITOREO (COMPUTADORAS)
-// ==========================================
+/* ── Computer monitoring ────────────────────────────────── */
 async function loadComputers() {
     try {
         const response = await fetch('/api/computers');
+
+        // ---  Validación de sesión ---
+        // Si el servidor nos rechaza (401) o redirigió la petición al login (302)
+        if (response.status === 401 || response.redirected) {
+            window.location.href = '/login';
+            return; // Abortar ejecución
+        }
+        // -----------------------------------
         const data = await response.json();
 
-        const totalEl = document.getElementById('total-computers');
-        if(totalEl) {
-            totalEl.textContent = data.total;
-            document.getElementById('online-computers').textContent = data.online;
-            document.getElementById('offline-computers').textContent = data.offline;
+        document.getElementById('total-computers').textContent   = data.total;
+        document.getElementById('online-computers').textContent  = data.online;
+        document.getElementById('offline-computers').textContent = data.offline;
 
-            const container = document.getElementById('computers-container');
+        const container = document.getElementById('computers-container');
 
-            container.innerHTML = data.computers.map(pc => `
+        container.innerHTML = data.computers.map(pc => {
+            const statusDot = `<span class="status-dot"></span>`;
+            const statusLabel = pc.status === 'online' ? 'En línea' : 'Offline';
+
+            let userBlock;
+            if (pc.info.locked) {
+                userBlock = `
+                    <div class="user-status locked">
+                        <span class="status-icon">${ICON_LOCK}</span>
+                        <span class="locked-text">Pantalla bloqueada<small>Equipo disponible</small></span>
+                    </div>`;
+            } else if (pc.info.current_user) {
+                userBlock = `
+                    <div class="user-status active">
+                        <span class="status-icon">${ICON_USER}</span>
+                        <div class="user-details">
+                            <span class="user-name">${pc.info.current_user}</span>
+                            <span class="user-mat">Matrícula: ${pc.info.cardnumber || 'No registrada'}</span>
+                        </div>
+                    </div>`;
+            } else {
+                userBlock = `
+                    <div class="user-status">
+                        <span class="status-icon" style="color:var(--text-3)">${ICON_HELP}</span>
+                        <span style="color:var(--text-3);font-size:.85em;">Estado desconocido</span>
+                    </div>`;
+            }
+
+            return `
                 <div class="computer-card ${pc.status}">
-
                     <div class="card-header">
                         <h3>${pc.name}</h3>
-                        <span class="status-badge ${pc.status}">${pc.status === 'online' ? 'EN LÍNEA' : 'OFFLINE'}</span>
+                        <span class="status-badge ${pc.status}">${statusDot}${statusLabel}</span>
                     </div>
+                    <div class="info-row"><span>IP Red Local</span><strong>${pc.ip}</strong></div>
+                    <div class="info-row"><span>Último latido</span><strong>${pc.last_heartbeat.split(' ')[1]}</strong></div>
+                    ${pc.info.cpu_percent ? `<div class="info-row"><span>Uso CPU</span><strong>${pc.info.cpu_percent}%</strong></div>` : ''}
+                    ${userBlock}
+                    <button class="btn-delete" onclick="deleteComputer('${pc.id}')">${ICON_TRASH} Quitar del monitor</button>
+                </div>`;
+        }).join('');
 
-                    <div class="info-row"><span>IP Red Local:</span> <strong>${pc.ip}</strong></div>
-                    <div class="info-row"><span>Último Latido:</span> <strong>${pc.last_heartbeat.split(' ')[1]}</strong></div>
-                    ${pc.info.cpu_percent ? `<div class="info-row"><span>Uso CPU:</span> <strong>${pc.info.cpu_percent}%</strong></div>` : ''}
-
-                    ${pc.info.locked ? `
-                        <div class="user-status locked">
-                            <span class="icon">🔒</span>
-                            <span class="locked-text">Pantalla Bloqueada<br><small style="color:#e53e3e; font-weight:normal;">Equipo Disponible</small></span>
-                        </div>
-                    ` : (pc.info.current_user ? `
-                        <div class="user-status active">
-                            <span class="icon">👤</span>
-                            <div class="user-details">
-                                <span class="user-name">${pc.info.current_user}</span>
-                                <span class="user-mat">Matrícula: ${pc.info.cardnumber || 'No registrada'}</span>
-                            </div>
-                        </div>
-                    ` : `
-                        <div class="user-status">
-                            <span class="icon">❓</span>
-                            <span>Estado desconocido</span>
-                        </div>
-                    `)}
-
-                    <button class="btn-delete" onclick="deleteComputer('${pc.id}')">🗑️ Quitar del Monitor</button>
-                </div>
-            `).join('');
-        }
     } catch (error) {
-        console.error("Error cargando los datos:", error);
+        console.error('Error cargando los datos:', error);
     }
 }
 
@@ -98,89 +112,192 @@ async function deleteComputer(id) {
 setInterval(loadComputers, 5000);
 loadComputers();
 
-// ==========================================
-// 3. NAVEGACIÓN Y VISTAS (SIDEBAR)
-// ==========================================
+/* ── Sidebar & vistas ───────────────────────────────── */
 function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    if(sidebar) sidebar.classList.toggle('collapsed');
+    document.getElementById('sidebar').classList.toggle('collapsed');
 }
 
-let statsInterval = null;
+var statsInterval = null;
 
 function setView(name) {
     document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
     document.querySelectorAll('.nav-item').forEach(function(i) { i.classList.remove('active'); });
+    document.getElementById('view-' + name).classList.add('active');
+    var navEl = document.getElementById('nav-' + name);
+    if (navEl) navEl.classList.add('active');
 
-    const targetView = document.getElementById('view-' + name);
-    if(targetView) targetView.classList.add('active');
-
-    const navEl = document.getElementById('nav-' + name);
-    if (navEl && !navEl.classList.contains('disabled')) { navEl.classList.add('active'); }
-
+    // Manejo de intervalos y carga de datos según la vista
     if (name === 'stats') {
         loadStats();
         if (!statsInterval) { statsInterval = setInterval(loadStats, 30000); }
+    } else if (name === 'logs') { // <--- ESTA ES LA PARTE CLAVE QUE FALTABA
+        loadLogs(1);
+        if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
     } else {
         if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
     }
 }
 
-// ==========================================
-// 4. LÓGICA DE ESTADÍSTICAS
-// ==========================================
+/* ── Estadísticas ───────────────────────────────────── */
 function loadStats() {
     fetch('/api/stats')
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            // --- NUEVO: Validación de sesión ---
+            if (r.redirected || r.status === 401) {
+                window.location.href = '/login';
+                throw new Error('Sesión expirada');
+            }
+            // -----------------------------------
+            return r.json();
+        })
         .then(function(d) {
-            if (d.error) { console.error('Stats error:', d.error); return; }
+            if (d.error) return;
 
-            document.getElementById('st-total-alumnos').textContent = d.total_alumnos.toLocaleString('es-MX');
-            document.getElementById('st-logins-hoy').textContent    = d.logins_hoy;
-            document.getElementById('st-logins-semana').textContent = d.logins_semana;
-            document.getElementById('st-logins-mes').textContent    = d.logins_mes;
+            document.getElementById('st-total-alumnos').textContent  = d.total_alumnos.toLocaleString('es-MX');
+            document.getElementById('st-logins-hoy').textContent     = d.logins_hoy;
+            document.getElementById('st-logins-semana').textContent  = d.logins_semana;
+            document.getElementById('st-logins-mes').textContent     = d.logins_mes;
+            document.getElementById('st-logins-semestre').textContent= d.logins_semestre;
 
-            /* Actividad reciente - ACTUALIZADA CON COLUMNA MATRICULA */
-            const recEl = document.getElementById('st-recientes');
+            /* Actividad reciente actualizada */
+            var recEl = document.getElementById('st-recientes');
             if (!d.recientes.length) {
                 recEl.innerHTML = '<div class="empty-msg">Sin actividad registrada aún.</div>';
             } else {
-                recEl.innerHTML = '<table class="st-table"><thead><tr><th>PC</th><th>Alumno</th><th>Matrícula</th><th>Evento</th><th>Fecha</th></tr></thead><tbody>' +
-                    d.recientes.map(function(r) {
-                        const badge = r.evento === 'LOGIN'
-                            ? '<span class="badge-login">LOGIN</span>'
-                            : '<span class="badge-logout">LOGOUT</span>';
-                        return '<tr><td>' + r.pc + '</td><td>' + r.nombre + '</td><td>' + r.matricula + '</td><td>' + badge + '</td><td>' + r.timestamp + '</td></tr>';
-                    }).join('') + '</tbody></table>';
+                var encabezado =
+                    '<table class="st-table"><thead><tr>' +
+                    '<th>PC</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th>' +
+                    '<th>Hora</th><th>Evento</th>' +
+                    '</tr></thead><tbody>';
+
+                var filas = d.recientes.map(function(r) {
+                    var badgeClass = 'badge-en-uso';
+                    var evText = r.evento;
+
+                    if (r.evento === 'LOGIN') {
+                        badgeClass = 'badge-login';
+                    } else if (r.evento.startsWith('LOGOUT')) {
+                        badgeClass = 'badge-logout';
+                        evText = 'LOGOUT';
+                    }
+
+                    var eventoTd = '<td><span class="' + badgeClass + '">' + evText + '</span></td>';
+
+                    return '<tr>' +
+                        '<td class="mono">' + r.pc        + '</td>' +
+                        '<td class="mono">' + r.matricula + '</td>' +
+                        '<td>'             + r.nombre     + '</td>' +
+                        '<td>'             + r.carrera    + '</td>' +
+                        '<td class="ts">'  + r.hora       + '</td>' +
+                        eventoTd +
+                        '</tr>';
+                }).join('');
+
+                recEl.innerHTML = encabezado + filas + '</tbody></table>';
             }
 
             /* Top PCs */
-            const pcsEl = document.getElementById('st-top-pcs');
+            var pcsEl = document.getElementById('st-top-pcs');
             if (!d.top_pcs.length) {
                 pcsEl.innerHTML = '<div class="empty-msg">Sin datos de uso aún.</div>';
             } else {
-                const maxPc = d.top_pcs[0].total;
+                var maxPc = d.top_pcs[0].total;
                 pcsEl.innerHTML = d.top_pcs.map(function(p) {
-                    const pct = Math.round((p.total / maxPc) * 100);
+                    var pct = Math.round((p.total / maxPc) * 100);
                     return '<div class="bar-row"><span class="bar-label">' + p.pc + '</span>' +
-                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#22d3ee"></div></div>' +
                         '<span class="bar-count">' + p.total + '</span></div>';
                 }).join('');
             }
 
             /* Distribución carreras padrón */
-            const carEl = document.getElementById('st-dist-carreras');
+            var carEl = document.getElementById('st-dist-carreras');
             if (!d.dist_carreras.length) {
                 carEl.innerHTML = '<div class="empty-msg">Sin datos.</div>';
             } else {
-                const maxCar = d.dist_carreras[0].total;
+                var maxCar = d.dist_carreras[0].total;
                 carEl.innerHTML = d.dist_carreras.map(function(c) {
-                    const pct = Math.round((c.total / maxCar) * 100);
+                    var pct = Math.round((c.total / maxCar) * 100);
                     return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
-                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#6366f1"></div></div>' +
+                        '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
+                }).join('');
+            }
+
+            /* Top carreras por uso real */
+            var usoEl = document.getElementById('st-top-carreras-uso');
+            if (!d.top_carreras_uso.length) {
+                usoEl.innerHTML = '<div class="empty-msg">Sin datos de uso aún.</div>';
+            } else {
+                var maxUso = d.top_carreras_uso[0].total;
+                usoEl.innerHTML = d.top_carreras_uso.map(function(c) {
+                    var pct = Math.round((c.total / maxUso) * 100);
+                    return '<div class="bar-row"><span class="bar-label">' + c.carrera + '</span>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:#10b981"></div></div>' +
                         '<span class="bar-count">' + c.total.toLocaleString('es-MX') + '</span></div>';
                 }).join('');
             }
         })
         .catch(function(e) { console.error('Error cargando estadísticas:', e); });
+}
+
+/* ── Bitácora General (Paginada) ────────────────────── */
+/* ── Bitácora General (Paginada) ────────────────────── */
+function loadLogs(page) {
+    fetch('/api/logs?page=' + page)
+        .then(function(r) {
+            // --- NUEVO: Validación de sesión ---
+            if (r.redirected || r.status === 401) {
+                window.location.href = '/login';
+                throw new Error('Sesión expirada');
+            }
+            // -----------------------------------
+            return r.json();
+        })
+        .then(function(d) {
+            if (d.error) return;
+
+            var container = document.getElementById('logs-container');
+            var pagination = document.getElementById('logs-pagination');
+
+            if (!d.logs || !d.logs.length) {
+                container.innerHTML = '<div class="empty-msg">No hay registros en la bitácora.</div>';
+                pagination.innerHTML = '';
+                return;
+            }
+
+            // Construir tabla
+            var html = '<table class="st-table"><thead><tr><th>PC</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th><th>Hora</th><th>Evento</th></tr></thead><tbody>';
+            html += d.logs.map(function(r) {
+                var badgeClass = 'badge-en-uso';
+                var evText = r.evento;
+
+                if (r.evento === 'LOGIN') {
+                    badgeClass = 'badge-login';
+                } else if (r.evento.startsWith('LOGOUT')) {
+                    badgeClass = 'badge-logout';
+                    evText = 'LOGOUT';
+                }
+
+                return '<tr>' +
+                    '<td class="mono">' + r.pc + '</td>' +
+                    '<td class="mono">' + r.matricula + '</td>' +
+                    '<td>' + r.nombre + '</td>' +
+                    '<td>' + r.carrera + '</td>' +
+                    '<td class="ts">' + r.hora + '</td>' +
+                    '<td><span class="' + badgeClass + '">' + evText + '</span></td>' +
+                    '</tr>';
+            }).join('');
+            html += '</tbody></table>';
+
+            container.innerHTML = html;
+
+            // Construir controles de paginación
+            var btnPrev = '<button class="btn-page" ' + (d.current_page <= 1 ? 'disabled' : '') + ' onclick="loadLogs(' + (d.current_page - 1) + ')">Anterior</button>';
+            var info = '<span class="page-info">Página ' + d.current_page + ' de ' + d.total_pages + '</span>';
+            var btnNext = '<button class="btn-page" ' + (d.current_page >= d.total_pages ? 'disabled' : '') + ' onclick="loadLogs(' + (d.current_page + 1) + ')">Siguiente</button>';
+
+            pagination.innerHTML = btnPrev + info + btnNext;
+        })
+        .catch(function(e) { console.error('Error cargando bitácora:', e); });
 }
