@@ -9,3 +9,7 @@ Thumbs.db
 .venv/
 __pycache__/
 *.pyc
+
+# Archivos de entorno con credenciales reales (respaldo fuera del repo)
+env
+env.txt
