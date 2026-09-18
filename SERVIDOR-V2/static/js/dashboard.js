@@ -67,6 +67,18 @@ function horaDe(marca) {
     return (marca || '').split(' ')[1] || marca || '';
 }
 
+/* "2026-09-18 13:05:22" -> "las 13:05" si es hoy, "ayer a las 13:05", o "el 15/09 a las 13:05". */
+function cuandoDe(marca) {
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(marca || '');
+    if (!m) return `las ${horaDe(marca)}`;
+    const [, anio, mes, dia, hh, mm] = m;
+    const hoy = new Date(); const ayer = new Date(); ayer.setDate(hoy.getDate() - 1);
+    const esFecha = (d) => d.getFullYear() === +anio && d.getMonth() + 1 === +mes && d.getDate() === +dia;
+    if (esFecha(hoy))  return `las ${hh}:${mm}`;
+    if (esFecha(ayer)) return `ayer a las ${hh}:${mm}`;
+    return `el ${dia}/${mes} a las ${hh}:${mm}`;
+}
+
 function cuerpoTarjeta(pc, estado) {
     const info = pc.info || {};
     if (estado === 'en-uso') {
@@ -82,7 +94,7 @@ function cuerpoTarjeta(pc, estado) {
     }
     if (estado === 'sin-conexion') {
         return `<span class="status-icon">${ICONS.off}</span>
-            <span class="card-state-text"><strong>No responde</strong> desde las ${escapar(horaDe(pc.last_heartbeat))}. Puede estar apagada o sin red.</span>`;
+            <span class="card-state-text"><strong>No responde</strong> desde ${escapar(cuandoDe(pc.last_heartbeat))}. Puede estar apagada o sin red.</span>`;
     }
     return `<span class="status-icon">${ICONS.help}</span>
         <span class="card-state-text">El kiosko está conectado pero no reportó su estado.</span>`;
@@ -99,7 +111,7 @@ function htmlTarjeta(pc, estado) {
         <details class="card-details">
             <summary>Detalles del equipo</summary>
             <div class="card-meta"><span>Dirección en la red</span><strong>${escapar(pc.ip)}</strong></div>
-            <div class="card-meta"><span>Última señal</span><strong>${escapar(horaDe(pc.last_heartbeat))}</strong></div>
+            <div class="card-meta"><span>Última señal</span><strong>${escapar(cuandoDe(pc.last_heartbeat).replace(/^las /, ''))}</strong></div>
             ${info_cpu(pc)}
             <button type="button" class="btn-link" onclick="deleteComputer('${escapar(pc.id)}', '${escapar(pc.name)}')">Quitar del monitor</button>
         </details>`;
@@ -111,11 +123,30 @@ function info_cpu(pc) {
 }
 
 let ultimaActualizacion = null;
+let servidorCaidoDesde = null;
+
+function hace(ms) {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s} s`;
+    if (s < 3600) return `${Math.round(s / 60)} min`;
+    return `${Math.round(s / 3600)} h`;
+}
 
 function textoActualizado() {
+    if (servidorCaidoDesde) {
+        const dato = ultimaActualizacion ? `, último dato hace ${hace(Date.now() - ultimaActualizacion)}` : '';
+        return `sin respuesta del servidor desde hace ${hace(Date.now() - servidorCaidoDesde)}${dato}`;
+    }
     if (!ultimaActualizacion) return 'cargando';
-    const s = Math.round((Date.now() - ultimaActualizacion) / 1000);
-    return s < 5 ? 'actualizado ahora' : `actualizado hace ${s} s`;
+    const ms = Date.now() - ultimaActualizacion;
+    return ms < 5000 ? 'actualizado ahora' : `actualizado hace ${hace(ms)}`;
+}
+
+function pintarAvisoServidor() {
+    const aviso = document.getElementById('server-warning');
+    const caido = Boolean(servidorCaidoDesde);
+    aviso.hidden = !caido;
+    document.getElementById('computers-container').classList.toggle('desactualizado', caido);
 }
 
 /* Actualiza el grid sin destruirlo: cada tarjeta se identifica por data-id,
@@ -184,19 +215,22 @@ async function loadComputers() {
         document.getElementById('sin-conexion-computers').textContent = conteo['sin-conexion'];
         document.getElementById('total-computers').textContent        = lista.length;
 
+        document.getElementById('unknown-computers').textContent =
+            conteo['desconocido'] ? ` · ${conteo['desconocido']} sin información` : '';
+
         pintarEquipos(lista);
         ultimaActualizacion = Date.now();
-        document.getElementById('refresh-info').textContent = textoActualizado();
+        servidorCaidoDesde = null;
     } catch (error) {
-        const info = document.getElementById('refresh-info');
-        info.textContent = ultimaActualizacion
-            ? `sin respuesta del servidor, ${textoActualizado()}`
-            : 'no se pudo conectar con el servidor';
+        if (error.message === 'Sesión expirada') return;
+        servidorCaidoDesde = servidorCaidoDesde || Date.now();
         const contenedor = document.getElementById('computers-container');
         if (!contenedor.querySelector('.computer-card')) {
             contenedor.innerHTML = `<div class="empty-msg">No se pudo cargar la lista de equipos. Se volverá a intentar en unos segundos.</div>`;
         }
     }
+    pintarAvisoServidor();
+    document.getElementById('refresh-info').textContent = textoActualizado();
 }
 
 async function deleteComputer(id, nombre) {
@@ -211,7 +245,7 @@ async function deleteComputer(id, nombre) {
 
 setInterval(loadComputers, 5000);
 setInterval(() => {
-    if (ultimaActualizacion) document.getElementById('refresh-info').textContent = textoActualizado();
+    if (ultimaActualizacion || servidorCaidoDesde) document.getElementById('refresh-info').textContent = textoActualizado();
 }, 1000);
 loadComputers();
 
@@ -282,18 +316,39 @@ function tamanoLegible(bytes) {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function proponerArchivo(archivo) {
+/* Cuenta las filas con datos del CSV (sin el encabezado) para mostrarlo en la confirmacion. */
+function contarRegistros(archivo) {
+    return new Promise(resolve => {
+        const lector = new FileReader();
+        lector.onload = () => {
+            const lineas = String(lector.result).split(/\r?\n/).filter(l => l.trim());
+            resolve(Math.max(0, lineas.length - 1));
+        };
+        lector.onerror = () => resolve(null);
+        lector.readAsText(archivo);
+    });
+}
+
+async function proponerArchivo(archivo) {
     mostrarMensaje('', '');
+    confirmBox.hidden = true;
     if (!/\.csv$/i.test(archivo.name)) {
         mostrarMensaje('error', `${archivo.name} no es un archivo CSV.`,
             'Exporta el padrón desde el sistema de la biblioteca en formato CSV y vuelve a intentar.');
         return;
     }
+    const registros = await contarRegistros(archivo);
+    if (registros === 0) {
+        mostrarMensaje('error', `${archivo.name} está vacío.`,
+            'Solo trae el encabezado o nada. Revisa la exportación del sistema de la biblioteca.');
+        return;
+    }
     archivoPendiente = archivo;
     const actual = totalPadron == null ? 'el padrón actual' : `los <strong>${formatearNumero(totalPadron)}</strong> alumnos del padrón actual`;
-    confirmText.innerHTML = `Vas a reemplazar ${actual} por los de <strong>${escapar(archivo.name)}</strong> (${tamanoLegible(archivo.size)}). Los alumnos que no vengan en el archivo dejarán de poder entrar a los equipos.`;
+    const trae = registros == null ? '' : ` Trae <strong>${formatearNumero(registros)} ${registros === 1 ? 'registro' : 'registros'}</strong>.`;
+    confirmText.innerHTML = `Vas a reemplazar ${actual} por los de <strong>${escapar(archivo.name)}</strong>.${trae} Los alumnos que no vengan en el archivo dejarán de poder entrar a los equipos.`;
     confirmBox.hidden = false;
-    document.getElementById('upload-confirm-btn').focus();
+    confirmBox.focus();
 }
 
 document.getElementById('upload-cancel').onclick = () => {
@@ -327,18 +382,25 @@ async function enviarCsv(archivo) {
         const datos = await leerJson(await fetch('/api/upload', { method: 'POST', body: formData }));
         const cuantos = (datos.message || '').match(/\d+/);
         const n = cuantos ? formatearNumero(cuantos[0]) : null;
-        const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
         mostrarMensaje('exito', n ? `Padrón actualizado: ${n} alumnos.` : 'Padrón actualizado.', `Cargado desde ${archivo.name} a las ${hora}.`);
         archivoPendiente = null;
         fileInput.value = '';
         cargarConteoPadron();
     } catch (e) {
+        if (e.message === 'Sesión expirada') return;
         const esRed = e instanceof TypeError;
-        mostrarMensaje('error',
-            esRed ? 'No se pudo conectar con el servidor.' : 'No se cargó el padrón.',
-            esRed ? 'Revisa la conexión con el servidor e intenta de nuevo. El padrón anterior sigue intacto.' : `${e.message}. El padrón anterior sigue intacto.`,
-            `<button type="button" class="btn-secondary" id="upload-retry">Intentar de nuevo</button>`);
-        document.getElementById('upload-retry').onclick = () => enviarCsv(archivo);
+        if (esRed) {
+            mostrarMensaje('error', 'No se pudo conectar con el servidor.',
+                'Revisa la conexión con el servidor e intenta de nuevo. El padrón anterior sigue intacto.',
+                `<button type="button" class="btn-secondary" id="upload-retry">Intentar de nuevo</button>`);
+            document.getElementById('upload-retry').onclick = () => enviarCsv(archivo);
+        } else {
+            mostrarMensaje('error', 'No se cargó el padrón.',
+                `${e.message}. El padrón anterior sigue intacto.`,
+                `<button type="button" class="btn-secondary" id="upload-pick-other">Elegir otro archivo</button>`);
+            document.getElementById('upload-pick-other').onclick = () => { fileInput.value = ''; fileInput.click(); };
+        }
     } finally {
         zone.disabled = false;
     }
@@ -397,9 +459,17 @@ async function loadStats() {
         pintarLista('st-dist-carreras', d.dist_carreras, 'No hay padrón cargado.', it => barras(it, 'carrera', 'padron'));
         pintarLista('st-top-carreras-uso', d.top_carreras_uso, 'Todavía no hay uso registrado.', it => barras(it, 'carrera', 'uso'));
     } catch (e) {
+        if (e.message === 'Sesión expirada') return;
+        console.warn('Estadísticas:', e.message);
+        for (const id of ['st-logins-hoy', 'st-logins-semana', 'st-logins-mes', 'st-logins-semestre']) {
+            document.getElementById(id).textContent = '–';
+        }
         document.getElementById('st-recientes').innerHTML =
-            `<div class="empty-msg">No se pudieron cargar las estadísticas. ${escapar(e.message)}.<br>
-             <button type="button" class="btn-secondary" onclick="loadStats()">Intentar de nuevo</button></div>`;
+            `<div class="empty-msg">No se pudieron cargar las estadísticas. Se volverá a intentar en 30 segundos.<br>
+             <button type="button" class="btn-secondary" onclick="loadStats()">Intentar ahora</button></div>`;
+        for (const id of ['st-top-pcs', 'st-dist-carreras', 'st-top-carreras-uso']) {
+            document.getElementById(id).innerHTML = '<div class="empty-msg">Sin datos por ahora.</div>';
+        }
     }
 }
 
@@ -421,7 +491,9 @@ async function loadLogs(pagina) {
             `<span class="page-info">Página ${actual} de ${total}</span>` +
             `<button type="button" class="btn-secondary" ${actual >= total ? 'disabled' : ''} onclick="loadLogs(${actual + 1})">Siguiente</button>`;
     } catch (e) {
-        contenedor.innerHTML = `<div class="empty-msg">No se pudo cargar la bitácora. ${escapar(e.message)}.<br>
+        if (e.message === 'Sesión expirada') return;
+        console.warn('Bitácora:', e.message);
+        contenedor.innerHTML = `<div class="empty-msg">No se pudo cargar la bitácora.<br>
             <button type="button" class="btn-secondary" onclick="loadLogs(${pagina})">Intentar de nuevo</button></div>`;
         paginacion.innerHTML = '';
     }

@@ -394,3 +394,114 @@ def test_login_usa_la_misma_familia_visual_que_el_dashboard(navegador, servidor)
     assert page.locator(".brand-mark svg").count() == 1, "el logo debe ser SVG, no emoji"
     assert contraste(page, ".field label") >= 4.5
     assert contraste(page, ".login-footer") >= 4.5
+
+
+# ---------------------------------------------------------------------------
+# Defectos encontrados en la segunda critica
+# ---------------------------------------------------------------------------
+
+def test_si_el_servidor_deja_de_responder_el_monitor_lo_dice_y_lo_sigue_diciendo(navegador, servidor):
+    llamadas = {"n": 0}
+
+    def equipos():
+        llamadas["n"] += 1
+        if llamadas["n"] > 1:
+            raise RuntimeError("servidor caido")
+        return SEIS_EQUIPOS
+
+    ctx = navegador.new_context(viewport={"width": 1440, "height": 900})
+    ctx.add_cookies([{"name": "session", "value": servidor["cookie"], "domain": "127.0.0.1", "path": "/"}])
+    page = ctx.new_page()
+
+    def responder(route):
+        if "/api/computers" in route.request.url:
+            try:
+                lista = equipos()
+            except RuntimeError:
+                return route.abort("connectionfailed")
+            return route.fulfill(json={"computers": lista, "total": 6, "online": 5, "offline": 1})
+        return route.continue_()
+
+    page.route("**/api/**", responder)
+    page.goto(servidor["url"] + "/")
+    page.wait_for_selector(".computer-card")
+
+    page.evaluate("loadComputers()")
+    page.wait_for_timeout(2500)  # el ticker de 1 s ya corrio varias veces
+
+    assert "sin respuesta del servidor" in page.locator("#refresh-info").inner_text()
+    assert page.locator("#server-warning").is_visible()
+
+
+def test_tras_un_archivo_rechazado_se_ofrece_elegir_otro_no_reintentar(navegador, servidor):
+    page, _ = abrir(navegador, servidor, upload="error")
+    ir_a_padron(page)
+    elegir_archivo(page)
+    page.click("#upload-confirm-btn")
+    page.wait_for_selector("#upload-msg.error")
+
+    assert page.locator("#upload-pick-other").is_visible()
+    assert page.locator("#upload-retry").count() == 0
+
+
+def test_equipo_sin_informacion_aparece_en_el_resumen(navegador, servidor):
+    equipos = SEIS_EQUIPOS + [pc("LAB-PC-07", locked=False, usuario=None)]
+    page, _ = abrir(navegador, servidor, equipos=equipos)
+
+    assert "1 sin información" in page.locator(".section-meta").inner_text()
+
+
+def test_equipo_apagado_desde_otro_dia_muestra_la_fecha(navegador, servidor):
+    equipos = [pc("LAB-PC-06", estado="offline", hora="2026-09-17 21:12:00")]
+    page, _ = abrir(navegador, servidor, equipos=equipos)
+
+    texto = texto_tarjeta(page, "LAB-PC-06")
+    assert "17/09" in texto or "ayer" in texto
+    assert "21:12" in texto
+
+
+def test_error_en_estadisticas_no_deja_paneles_cargando_ni_expone_la_excepcion(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.route("**/api/stats", lambda r: r.fulfill(status=500, json={"error": "sqlite3.OperationalError: database is locked"}))
+    page.evaluate("setView('stats')")
+    page.wait_for_timeout(500)
+
+    texto = page.locator("#view-stats").inner_text()
+    assert "Cargando" not in texto
+    assert "OperationalError" not in texto
+    assert "No se pudieron cargar" in texto
+
+
+def test_nombres_largos_no_desbordan_en_movil(navegador, servidor):
+    equipos = [pc("LAB-BIBLIOTECA-PLANTA-BAJA-ESCRITORIO-0000000042", locked=False,
+                  usuario="María Fernanda de los Ángeles Rodríguez Villaseñor", matricula=10203)]
+    page, _ = abrir(navegador, servidor, equipos=equipos, ancho=400, alto=850)
+
+    desbordan = page.evaluate("""() => [...document.querySelectorAll('.computer-card, .computer-card *')]
+        .filter(el => el.getBoundingClientRect().right > innerWidth + 1).map(el => el.className)""")
+    assert desbordan == []
+
+
+def test_menu_colapsado_conserva_nombres_accesibles(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("toggleSidebar()")
+
+    nombres = page.locator("button.nav-item").evaluate_all("els => els.map(e => e.getAttribute('aria-label'))")
+    assert all(nombres), nombres
+
+
+@pytest.mark.parametrize("vista", ["padron", "stats", "logs"])
+def test_cada_vista_tiene_encabezados_de_seccion(navegador, servidor, vista):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate(f"setView('{vista}')")
+    assert page.locator(f"#view-{vista} h2").count() >= 1
+
+
+def test_la_confirmacion_no_enfoca_el_boton_destructivo(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    ir_a_padron(page)
+    elegir_archivo(page)
+
+    activo = page.evaluate("document.activeElement.id")
+    assert activo != "upload-confirm-btn"
+    assert "1 registro" in page.locator("#upload-confirm").inner_text()
