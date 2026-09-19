@@ -349,11 +349,14 @@ function marcarSeccionAyuda(idSeccion) {
     }
 }
 
+let ignorarScrollAyudaHasta = 0;
+
 function irAyuda(idSeccion) {
     setView('ayuda');
     const titulo = document.getElementById(idSeccion);
     if (!titulo) return;
     titulo.setAttribute('tabindex', '-1');
+    ignorarScrollAyudaHasta = Date.now() + 800;   // el salto dispara scroll; no lo reinterpretamos
     titulo.scrollIntoView({ block: 'start' });
     titulo.focus({ preventScroll: true });
     marcarSeccionAyuda(idSeccion);
@@ -362,9 +365,14 @@ function irAyuda(idSeccion) {
 /* Al hacer scroll en la ayuda, el indice marca la seccion que va quedando arriba. */
 document.getElementById('contenido').addEventListener('scroll', () => {
     if (!document.getElementById('view-ayuda').classList.contains('active')) return;
-    const tope = document.getElementById('contenido').getBoundingClientRect().top + 24;
-    let actual = null;
-    for (const h of document.querySelectorAll('#view-ayuda .panel-title[id]')) {
+    if (Date.now() < ignorarScrollAyudaHasta) return;
+    const contenido = document.getElementById('contenido');
+    const titulos = [...document.querySelectorAll('#view-ayuda .panel-title[id]')];
+    const alFinal = contenido.scrollTop + contenido.clientHeight >= contenido.scrollHeight - 2;
+    if (alFinal) { marcarSeccionAyuda(titulos[titulos.length - 1].id); return; }
+    const tope = contenido.getBoundingClientRect().top + 60;
+    let actual = titulos[0].id;
+    for (const h of titulos) {
         if (h.getBoundingClientRect().top <= tope) actual = h.id;
     }
     if (actual) marcarSeccionAyuda(actual);
