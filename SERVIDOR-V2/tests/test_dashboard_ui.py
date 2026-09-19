@@ -776,3 +776,29 @@ def test_se_puede_cancelar_una_carga_en_curso(navegador, servidor):
 
     assert "cancel" in page.locator("#upload-msg").inner_text().lower()
     assert not page.locator("#drop-zone").is_disabled()
+
+
+# ---------------------------------------------------------------------------
+# Ayuda
+# ---------------------------------------------------------------------------
+
+def test_hay_una_vista_de_ayuda_que_explica_estados_y_padron(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.click("button.nav-item[data-view='ayuda']")
+    page.wait_for_selector("#view-ayuda", state="visible")
+
+    texto = page.locator("#view-ayuda").inner_text().lower()
+    for frase in ("libre", "en uso", "sin conexión", "sin información", "padrón", "csv", "quitar del monitor", "restaurar"):
+        assert frase in texto, frase
+    assert page.locator("#view-ayuda h2").count() >= 4
+
+
+def test_cada_vista_enlaza_a_su_ayuda(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    for vista, ancla in (("equipos", "ayuda-equipos"), ("padron", "ayuda-padron"), ("stats", "ayuda-estadisticas"), ("logs", "ayuda-bitacora")):
+        page.evaluate(f"setView('{vista}')")
+        enlace = page.locator(f"#view-{vista} a.ayuda-enlace")
+        assert enlace.count() == 1, vista
+        enlace.click()
+        assert page.locator("#view-ayuda").is_visible()
+        assert page.evaluate(f"document.getElementById('{ancla}') !== null")

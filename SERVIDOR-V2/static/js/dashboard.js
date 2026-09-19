@@ -313,6 +313,16 @@ function setView(nombre) {
     }
 }
 
+/* Abre la vista de ayuda en la seccion pedida y lleva el foco al titulo. */
+function irAyuda(idSeccion) {
+    setView('ayuda');
+    const titulo = document.getElementById(idSeccion);
+    if (!titulo) return;
+    titulo.setAttribute('tabindex', '-1');
+    titulo.scrollIntoView({ block: 'start' });
+    titulo.focus({ preventScroll: true });
+}
+
 /* ── Padron ─────────────────────────────────────────── */
 const zone        = document.getElementById('drop-zone');
 const fileInput   = document.getElementById('fileInput');

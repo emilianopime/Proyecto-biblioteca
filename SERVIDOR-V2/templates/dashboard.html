@@ -75,6 +75,16 @@
                 <span class="nav-label">Bitácora</span>
                 <span class="nav-tooltip" aria-hidden="true">Bitácora</span>
             </button>
+
+            <div class="nav-divider" role="separator"></div>
+
+            <button class="nav-item" type="button" id="nav-ayuda" data-view="ayuda" onclick="setView('ayuda')" aria-label="Ayuda">
+                <span class="nav-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
+                </span>
+                <span class="nav-label">Ayuda</span>
+                <span class="nav-tooltip" aria-hidden="true">Ayuda</span>
+            </button>
         </nav>
 
         <main class="content-area" id="contenido" tabindex="-1">
@@ -83,7 +93,7 @@
             <section class="view active" id="view-equipos" aria-labelledby="titulo-equipos">
                 <div class="page-header">
                     <h1 id="titulo-equipos">Equipos del laboratorio</h1>
-                    <p>Qué máquinas están libres, cuáles tiene un alumno y cuáles no responden. Se actualiza solo.</p>
+                    <p>Qué máquinas están libres, cuáles tiene un alumno y cuáles no responden. Se actualiza solo. <a class="ayuda-enlace" href="#ayuda-equipos" onclick="irAyuda('ayuda-equipos'); return false;">¿Qué significa cada estado?</a></p>
                 </div>
 
                 <div class="quick-stats" aria-label="Resumen de equipos. Pulsa uno para ver solo esos equipos">
@@ -120,7 +130,7 @@
             <section class="view" id="view-padron" aria-labelledby="titulo-padron">
                 <div class="page-header">
                     <h1 id="titulo-padron">Padrón de alumnos</h1>
-                    <p>La lista de matrículas que el kiosko acepta. Se reemplaza completa cada vez que subes un archivo nuevo.</p>
+                    <p>La lista de matrículas que el kiosko acepta. Se reemplaza completa cada vez que subes un archivo nuevo. <a class="ayuda-enlace" href="#ayuda-padron" onclick="irAyuda('ayuda-padron'); return false;">¿Cómo saco el archivo del sistema de la biblioteca?</a></p>
                 </div>
 
                 <div class="panel">
@@ -163,6 +173,70 @@
                 </div>
             </section>
 
+            <!-- Vista: Ayuda -->
+            <section class="view ayuda" id="view-ayuda" aria-labelledby="titulo-ayuda">
+                <div class="page-header">
+                    <h1 id="titulo-ayuda">Ayuda</h1>
+                    <p>Qué significa cada cosa que ves en el panel y qué hacer en las situaciones más comunes.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-equipos">Equipos: los cuatro estados</h2>
+                    <dl class="ayuda-lista">
+                        <dt><span class="status-badge libre"><span class="status-dot" aria-hidden="true"></span>Libre</span></dt>
+                        <dd>La máquina está encendida y el kiosko muestra la pantalla de bloqueo, esperando que un alumno teclee su matrícula. Puedes mandar a alguien a usarla.</dd>
+                        <dt><span class="status-badge en-uso"><span class="status-dot" aria-hidden="true"></span>En uso</span></dt>
+                        <dd>Un alumno inició sesión. La tarjeta muestra su nombre y matrícula. Cuando cierre sesión o apague la máquina, vuelve a Libre o pasa a Sin conexión.</dd>
+                        <dt><span class="status-badge sin-conexion"><span class="status-dot" aria-hidden="true"></span>Sin conexión</span></dt>
+                        <dd>La máquina dejó de mandar señal hace más de 15 segundos. Lo más común es que esté apagada. También puede ser un cable de red suelto o que el programa del kiosko se haya cerrado. La tarjeta dice desde cuándo no responde.</dd>
+                        <dt><span class="status-badge desconocido"><span class="status-dot" aria-hidden="true"></span>Sin información</span></dt>
+                        <dd>La máquina manda señal pero el kiosko no reportó si está bloqueada o en uso. Suele pasar unos segundos al arrancar. Si se queda así, reinicia el programa del kiosko en esa máquina.</dd>
+                    </dl>
+                    <h3>Si una máquina no responde</h3>
+                    <ol class="ayuda-pasos">
+                        <li>Revisa que esté encendida y que el cable de red esté conectado.</li>
+                        <li>Revisa que el programa del kiosko esté abierto. Si no, ábrelo; la máquina vuelve a aparecer sola en unos segundos.</li>
+                        <li>Si la máquina ya no está en el laboratorio, abre <em>Detalles del equipo</em> en su tarjeta y elige <em>Quitar del monitor</em>. Solo desaparece de la lista; si algún día vuelve a encenderse, reaparece.</li>
+                    </ol>
+                    <h3>La franja "Sin conexión con el servidor"</h3>
+                    <p>Aparece cuando este panel no logra hablar con el servidor. Los estados que ves pueden estar viejos. Se reintenta solo cada 5 segundos; si dura más de un minuto, avisa a quien administra el servidor.</p>
+                    <h3>Para ver solo un tipo de equipo</h3>
+                    <p>Pulsa uno de los tres contadores de arriba, por ejemplo <em>Libres</em>. Vuelve a pulsarlo para ver todos.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-padron">Padrón de alumnos</h2>
+                    <p>El padrón es la lista de matrículas que el kiosko acepta. Si un alumno no está en el padrón, la máquina no lo deja entrar.</p>
+                    <h3>Cómo sacar el archivo del sistema de la biblioteca</h3>
+                    <ol class="ayuda-pasos">
+                        <li>En el sistema de la biblioteca, exporta la lista de usuarios en formato <strong>CSV</strong>. No hace falta quitar columnas: el panel usa solo <strong>Carnet</strong> (la matrícula), <strong>Apellido(s)</strong>, <strong>Nombre(s)</strong> y <strong>Carrera</strong>, e ignora las demás.</li>
+                        <li>En el módulo <em>Padrón</em>, elige el archivo o arrástralo a la zona punteada.</li>
+                        <li>Lee la confirmación: dice cuántos alumnos tiene el padrón actual y cuántos registros trae el archivo. Si cuadra, pulsa <em>Reemplazar padrón</em>.</li>
+                    </ol>
+                    <h3>Si subiste el archivo equivocado</h3>
+                    <p>El padrón que había antes se conserva. En el mismo módulo, pulsa <em>Restaurar el padrón anterior</em>. El que acabas de subir queda guardado a su vez, así que puedes volver a cambiar de opinión.</p>
+                    <h3>El usuario invitado</h3>
+                    <p>Además de los alumnos del archivo, siempre se agrega una matrícula de invitado para personas que no están en el padrón. Quien administra el servidor puede cambiarla o quitarla.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-estadisticas">Estadísticas</h2>
+                    <p>Una <strong>entrada</strong> es cada vez que un alumno inicia sesión en un equipo. Si la misma persona entra tres veces en el día, cuentan tres entradas. Las salidas no se cuentan.</p>
+                    <p><em>Este semestre</em> va de enero a julio o de agosto a diciembre, según la fecha de hoy. <em>Esta semana</em> empieza el lunes.</p>
+                    <h3>El reporte</h3>
+                    <p>Desde <em>Generar reporte</em> eliges el periodo y obtienes el mismo documento de tres formas: verlo en pantalla e imprimirlo, descargarlo como PDF, o como Excel con una hoja por tabla. Trae entradas del periodo, alumnos distintos, equipos y carreras con más uso, horas pico y entradas por día.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-bitacora">Bitácora</h2>
+                    <p>Cada fila es un evento: <span class="badge badge-entrada">Entrada</span> cuando un alumno inicia sesión, <span class="badge badge-salida">Salida</span> cuando la cierra, y <span class="badge badge-salida">Salida (equipo apagado)</span> cuando la máquina se apagó o se desconectó con la sesión abierta.</p>
+                    <h3>Para buscar a alguien</h3>
+                    <p>Escribe en <em>Buscar</em> el nombre del alumno, su matrícula completa o el nombre del equipo. Puedes combinarlo con el tipo de evento y un rango de fechas. <em>Limpiar filtros</em> vuelve a mostrar todo.</p>
+                    <h3>Para llevarte los datos</h3>
+                    <p><em>Descargar</em> genera un archivo CSV que se abre en Excel. Si tienes filtros puestos, solo se descarga lo que estás viendo; el nombre del archivo lleva el rango de fechas.</p>
+                </div>
+            </section>
+
             <dialog id="dialogo-quitar" class="dialogo" aria-labelledby="quitar-titulo">
                 <form method="dialog">
                     <h2 id="quitar-titulo">¿Quitar <span id="quitar-nombre"></span> del monitor?</h2>
@@ -178,7 +252,7 @@
             <section class="view" id="view-stats" aria-labelledby="titulo-stats">
                 <div class="page-header">
                     <h1 id="titulo-stats">Estadísticas de uso</h1>
-                    <p>Cuántas entradas de alumnos han registrado los equipos y desde qué carreras.</p>
+                    <p>Cuántas entradas de alumnos han registrado los equipos y desde qué carreras. <a class="ayuda-enlace" href="#ayuda-estadisticas" onclick="irAyuda('ayuda-estadisticas'); return false;">¿Qué cuenta como entrada?</a></p>
                 </div>
 
                 <div class="stats-summary" aria-label="Ingresos por periodo">
@@ -252,7 +326,7 @@
                 <div class="page-header with-action">
                     <div>
                         <h1 id="titulo-logs">Bitácora</h1>
-                        <p>Cada entrada y salida de los alumnos en los equipos, de la más reciente a la más antigua.</p>
+                        <p>Cada entrada y salida de los alumnos en los equipos, de la más reciente a la más antigua. <a class="ayuda-enlace" href="#ayuda-bitacora" onclick="irAyuda('ayuda-bitacora'); return false;">¿Cómo busco a alguien?</a></p>
                     </div>
                     <div class="export-block">
                         <a class="btn-secondary" id="logs-export" href="/api/logs/export" aria-describedby="logs-export-info">

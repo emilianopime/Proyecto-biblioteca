@@ -326,6 +326,20 @@ body::before {
 .empty-msg { grid-column: 1 / -1; color: var(--text-2); font-size: var(--fs-md); text-align: center; padding: 28px 12px; max-width: 60ch; margin: 0 auto; }
 .empty-msg .btn-secondary { margin-top: 12px; }
 
+/* ── Ayuda ───────────────────────────────────────────── */
+.ayuda-enlace { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.ayuda-enlace:hover { color: #4ee0f5; }
+.ayuda .panel { max-width: 76ch; }
+.ayuda h3 { font-size: var(--fs-md); font-weight: 600; margin: 16px 0 6px; }
+.ayuda p, .ayuda dd, .ayuda li { font-size: var(--fs-md); color: var(--text-2); }
+.ayuda p + p { margin-top: 8px; }
+.ayuda strong, .ayuda em { color: var(--text); font-style: normal; }
+.ayuda-lista dt { margin-top: 10px; }
+.ayuda-lista dd { margin: 4px 0 0; }
+.ayuda-pasos { padding-left: 22px; }
+.ayuda-pasos li { margin-bottom: 6px; }
+.ayuda .badge, .ayuda .status-badge { vertical-align: middle; }
+
 /* ── Dialogo propio ──────────────────────────────────── */
 .dialogo {
     background: var(--surface); color: var(--text); border: 1px solid var(--border);
