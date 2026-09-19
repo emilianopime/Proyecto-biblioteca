@@ -372,13 +372,13 @@ document.getElementById('contenido').addEventListener('scroll', () => {
     const titulos = [...document.querySelectorAll('#view-ayuda .panel-title[id]')];
     const alFinal = contenido.scrollTop + contenido.clientHeight >= contenido.scrollHeight - 2;
     if (alFinal) { marcarSeccionAyuda(titulos[titulos.length - 1].id); return; }
-    // Se marca el panel que cruza la linea de lectura, a un tercio de la altura visible.
+    // Se marca el panel que mas area visible ocupa; un pixel del anterior ya no cuenta.
     const area = contenido.getBoundingClientRect();
-    const lineaLectura = area.top + area.height / 3;
-    let actual = titulos[0].id;
+    let actual = titulos[0].id, mayor = -1;
     for (const h of titulos) {
         const panel = h.closest('.panel').getBoundingClientRect();
-        if (panel.top <= lineaLectura) actual = h.id;
+        const visible = Math.max(0, Math.min(panel.bottom, area.bottom) - Math.max(panel.top, area.top));
+        if (visible > mayor) { mayor = visible; actual = h.id; }
     }
     marcarSeccionAyuda(actual);
 }, { passive: true });
