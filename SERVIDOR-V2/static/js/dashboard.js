@@ -343,6 +343,12 @@ function setView(nombre) {
 }
 
 /* Abre la vista de ayuda en la seccion pedida y lleva el foco al titulo. */
+function marcarSeccionAyuda(idSeccion) {
+    for (const a of document.querySelectorAll('#ayuda-indice a')) {
+        a.setAttribute('aria-current', String(a.getAttribute('href') === `#${idSeccion}`));
+    }
+}
+
 function irAyuda(idSeccion) {
     setView('ayuda');
     const titulo = document.getElementById(idSeccion);
@@ -350,7 +356,19 @@ function irAyuda(idSeccion) {
     titulo.setAttribute('tabindex', '-1');
     titulo.scrollIntoView({ block: 'start' });
     titulo.focus({ preventScroll: true });
+    marcarSeccionAyuda(idSeccion);
 }
+
+/* Al hacer scroll en la ayuda, el indice marca la seccion que va quedando arriba. */
+document.getElementById('contenido').addEventListener('scroll', () => {
+    if (!document.getElementById('view-ayuda').classList.contains('active')) return;
+    const tope = document.getElementById('contenido').getBoundingClientRect().top + 24;
+    let actual = null;
+    for (const h of document.querySelectorAll('#view-ayuda .panel-title[id]')) {
+        if (h.getBoundingClientRect().top <= tope) actual = h.id;
+    }
+    if (actual) marcarSeccionAyuda(actual);
+}, { passive: true });
 
 /* ── Padron ─────────────────────────────────────────── */
 const zone        = document.getElementById('drop-zone');

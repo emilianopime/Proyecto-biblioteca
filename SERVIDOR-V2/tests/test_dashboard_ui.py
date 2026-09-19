@@ -1024,3 +1024,25 @@ def test_no_hay_jerga_tecnica_en_las_tarjetas_ni_en_el_dialogo(navegador, servid
     assert "quitar de esta lista" in page.locator(".computer-card .btn-link").first.text_content().lower()
     assert page.locator(".user-chip .online-dot").count() == 0
     assert "cpu" not in page.locator("#computers-container").inner_text().lower()
+
+
+def test_la_ayuda_tiene_un_indice_que_lleva_a_cada_seccion_y_marca_la_activa(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("setView('ayuda')")
+    page.wait_for_selector("#view-ayuda", state="visible")
+
+    enlaces = page.locator("#ayuda-indice a")
+    assert enlaces.count() == 4
+    assert page.locator("#ayuda-indice").bounding_box()["x"] > page.locator("#view-ayuda .panel").first.bounding_box()["x"]
+
+    enlaces.nth(3).click()
+    page.wait_for_timeout(400)
+    assert page.evaluate("document.activeElement.id") == "ayuda-bitacora"
+    assert enlaces.nth(3).get_attribute("aria-current") == "true"
+
+
+def test_en_movil_el_indice_de_ayuda_va_arriba_del_contenido(navegador, servidor):
+    page, _ = abrir(navegador, servidor, ancho=400, alto=850)
+    page.evaluate("setView('ayuda')")
+    page.wait_for_selector("#view-ayuda", state="visible")
+    assert page.locator("#ayuda-indice").bounding_box()["y"] < page.locator("#view-ayuda .panel").first.bounding_box()["y"]

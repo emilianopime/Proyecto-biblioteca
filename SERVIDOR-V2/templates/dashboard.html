@@ -192,6 +192,15 @@
                     <p>Qué significa cada cosa que ves en el panel y qué hacer en las situaciones más comunes.</p>
                 </div>
 
+                <div class="ayuda-layout">
+                <nav class="ayuda-indice" id="ayuda-indice" aria-label="Secciones de la ayuda">
+                    <a href="#ayuda-equipos" onclick="irAyuda('ayuda-equipos'); return false;">Equipos</a>
+                    <a href="#ayuda-padron" onclick="irAyuda('ayuda-padron'); return false;">Padrón</a>
+                    <a href="#ayuda-estadisticas" onclick="irAyuda('ayuda-estadisticas'); return false;">Estadísticas</a>
+                    <a href="#ayuda-bitacora" onclick="irAyuda('ayuda-bitacora'); return false;">Bitácora</a>
+                </nav>
+                <div class="ayuda-contenido">
+
                 <div class="panel">
                     <h2 class="panel-title" id="ayuda-equipos">Equipos: los cuatro estados</h2>
                     <dl class="ayuda-lista">
@@ -247,6 +256,9 @@
                     <h3>Para llevarte los datos</h3>
                     <p><em>Descargar</em> genera un archivo CSV que se abre en Excel. Si tienes filtros puestos, solo se descarga lo que estás viendo; el nombre del archivo lleva el rango de fechas.</p>
                 </div>
+
+                </div><!-- /ayuda-contenido -->
+                </div><!-- /ayuda-layout -->
             </section>
 
             <dialog id="dialogo-quitar" class="dialogo" aria-labelledby="quitar-titulo">
