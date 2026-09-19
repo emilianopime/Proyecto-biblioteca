@@ -502,7 +502,6 @@ body::before {
 .reporte-aviso:empty { display: none; }
 .reporte-status { flex-basis: 100%; font-size: var(--fs-sm); color: var(--text-2); }
 .reporte-status:empty { display: none; }
-.abre-pestana { font-weight: 400; opacity: .85; font-size: var(--fs-xs); }
 .sm-sub { font-weight: 400; color: var(--text-3); }
 
 /* ── Filtros de la bitacora ──────────────────────────── */

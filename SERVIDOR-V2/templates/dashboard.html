@@ -304,7 +304,9 @@
                             <label class="campo"><span>Hasta</span><input type="date" id="reporte-hasta"></label>
                         </div>
                         <div class="reporte-acciones">
-                            <a class="btn-primary" id="reporte-ver" href="/reporte?periodo=mes" target="_blank" rel="noopener" aria-disabled="false">Ver reporte <span class="abre-pestana">(se abre en otra pestaña)</span></a>
+                            <a class="btn-primary" id="reporte-ver" href="/reporte?periodo=mes" target="_blank" rel="noopener" aria-disabled="false" title="Se abre en otra pestaña">Ver reporte
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                <span class="visually-hidden abre-pestana">(se abre en otra pestaña)</span></a>
                             <a class="btn-secondary" id="reporte-pdf" href="/reporte.pdf?periodo=mes" download aria-disabled="false">Descargar PDF</a>
                             <a class="btn-secondary" id="reporte-xlsx" href="/reporte.xlsx?periodo=mes" download aria-disabled="false">Descargar Excel</a>
                         </div>
