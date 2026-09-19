@@ -3,196 +3,393 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UACH — Control de Laboratorio</title>
+    <title>Control de Laboratorio — UACH</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
 
-    <!-- ══ TOPBAR ══════════════════════════════════════════ -->
+    <a class="skip-link" href="#contenido">Ir al contenido</a>
+
     <header class="topbar">
         <div class="topbar-left">
-            <button class="btn-toggle" onclick="toggleSidebar()" title="Contraer / expandir menú">
+            <button class="btn-toggle" type="button" onclick="toggleSidebar()" aria-label="Mostrar u ocultar el menú" aria-expanded="true" aria-controls="sidebar">
                 <span></span><span></span><span></span>
             </button>
             <div class="brand">
-                <div class="brand-mark">
+                <div class="brand-mark" aria-hidden="true">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                 </div>
-                <div>
+                <div class="brand-text">
                     <div class="brand-name">Control de Laboratorio</div>
                     <div class="brand-sub">Universidad Autónoma de Chihuahua</div>
                 </div>
             </div>
         </div>
         <div class="topbar-right">
-            <div class="user-chip">
-                <span class="online-dot"></span>
-                Sesión: <strong>{{ username }}</strong>
-            </div>
-            <form method="GET" action="/logout" style="margin:0;">
+            <div class="user-chip"><span class="user-chip-label">Sesión:</span> <strong>{{ username }}</strong></div>
+            <button type="button" class="btn-theme" id="theme-toggle" onclick="alternarTema()" aria-label="Cambiar a tema claro">
+                <svg class="icono-luna" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <svg class="icono-sol" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </button>
+            <form method="GET" action="/logout">
                 <button type="submit" class="btn-logout">Cerrar sesión</button>
             </form>
         </div>
     </header>
 
-    <!-- ══ LAYOUT ══════════════════════════════════════════ -->
     <div class="app-body">
 
-        <!-- Sidebar -->
-        <nav class="sidebar" id="sidebar">
+        <nav class="sidebar" id="sidebar" aria-label="Módulos">
             <div class="nav-section">Módulos</div>
 
-            <div class="nav-item active" id="nav-csv" onclick="setView('csv')">
-                <span class="nav-icon">
+            <button class="nav-item" type="button" id="nav-equipos" data-view="equipos" onclick="setView('equipos')" aria-current="page" aria-label="Equipos">
+                <span class="nav-icon" aria-hidden="true">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                 </span>
                 <span class="nav-label">Equipos</span>
-                <span class="nav-tooltip">Equipos</span>
-            </div>
+                <span class="nav-tooltip" aria-hidden="true">Equipos</span>
+            </button>
 
-            <div class="nav-divider"></div>
+            <button class="nav-item" type="button" id="nav-padron" data-view="padron" onclick="setView('padron')" aria-label="Padrón de alumnos">
+                <span class="nav-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </span>
+                <span class="nav-label">Padrón</span>
+                <span class="nav-tooltip" aria-hidden="true">Padrón de alumnos</span>
+            </button>
 
-            <div class="nav-item" id="nav-stats" onclick="setView('stats')">
-                <span class="nav-icon">
+            <div class="nav-divider" role="separator"></div>
+
+            <button class="nav-item" type="button" id="nav-stats" data-view="stats" onclick="setView('stats')" aria-label="Estadísticas">
+                <span class="nav-icon" aria-hidden="true">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 </span>
                 <span class="nav-label">Estadísticas</span>
-                <span class="nav-tooltip">Estadísticas</span>
-            </div>
-            <div class="nav-item" id="nav-logs" onclick="setView('logs')">
-                <span class="nav-icon">
+                <span class="nav-tooltip" aria-hidden="true">Estadísticas</span>
+            </button>
+
+            <button class="nav-item" type="button" id="nav-logs" data-view="logs" onclick="setView('logs')" aria-label="Bitácora">
+                <span class="nav-icon" aria-hidden="true">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                 </span>
                 <span class="nav-label">Bitácora</span>
-                <span class="nav-tooltip">Bitácora general</span>
-            </div>
+                <span class="nav-tooltip" aria-hidden="true">Bitácora</span>
+            </button>
+
+            <div class="nav-divider" role="separator"></div>
+
+            <button class="nav-item" type="button" id="nav-ayuda" data-view="ayuda" onclick="setView('ayuda')" aria-label="Ayuda">
+                <span class="nav-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
+                </span>
+                <span class="nav-label">Ayuda</span>
+                <span class="nav-tooltip" aria-hidden="true">Ayuda</span>
+            </button>
         </nav>
 
-        <!-- Content -->
-        <div class="content-area">
+        <main class="content-area" id="contenido" tabindex="-1">
 
-            <!-- ── Vista: Equipos ────────────────────────── -->
-            <div class="view active" id="view-csv">
-
+            <!-- Vista: Equipos -->
+            <section class="view active" id="view-equipos" aria-labelledby="titulo-equipos">
                 <div class="page-header">
-                    <h1>Equipos del Laboratorio</h1>
-                    <p>Monitoreo en tiempo real del estado de cada nodo</p>
+                    <h1 id="titulo-equipos">Equipos del laboratorio</h1>
+                    <p>Qué máquinas están libres, cuáles tiene un alumno y cuáles no responden. Se actualiza solo. <a class="ayuda-enlace" href="#ayuda-equipos" onclick="irAyuda('ayuda-equipos'); return false;">¿Qué significa cada estado?</a></p>
                 </div>
 
-                <div class="panel">
-                    <div class="panel-title">Carga de base de datos de alumnos</div>
-                    <div class="upload-row">
-                        <div id="drop-zone">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            Arrastra el archivo CSV aquí, o haz clic para seleccionarlo
-                        </div>
-                        <input type="file" id="fileInput" hidden>
-                    </div>
-                    <div id="upload-msg"></div>
-                </div>
-
-                <div class="quick-stats">
-                    <div class="qs-card total">
-                        <div class="qs-label">Total equipos</div>
-                        <div class="qs-value" id="total-computers">0</div>
-                    </div>
-                    <div class="qs-card online">
-                        <div class="qs-label">En línea</div>
-                        <div class="qs-value" id="online-computers">0</div>
-                    </div>
-                    <div class="qs-card offline">
-                        <div class="qs-label">Offline</div>
-                        <div class="qs-value" id="offline-computers">0</div>
-                    </div>
+                <span id="qs-desc" hidden>Pulsa para ver solo estos equipos; vuelve a pulsar para ver todos.</span>
+                <div class="quick-stats" aria-label="Resumen de equipos">
+                    <button type="button" class="qs-card libre" data-estado="libre" aria-pressed="false" aria-describedby="qs-desc">
+                        <span class="qs-label">Libres</span>
+                        <span class="qs-value" id="libres-computers">–</span>
+                        <span class="qs-hint" aria-hidden="true">Pulsa para filtrar</span>
+                    </button>
+                    <button type="button" class="qs-card en-uso" data-estado="en-uso" aria-pressed="false" aria-describedby="qs-desc">
+                        <span class="qs-label">En uso</span>
+                        <span class="qs-value" id="en-uso-computers">–</span>
+                        <span class="qs-hint" aria-hidden="true">Pulsa para filtrar</span>
+                    </button>
+                    <button type="button" class="qs-card sin-conexion" data-estado="sin-conexion" aria-pressed="false" aria-describedby="qs-desc">
+                        <span class="qs-label">Sin conexión</span>
+                        <span class="qs-value" id="sin-conexion-computers">–</span>
+                        <span class="qs-hint" aria-hidden="true">Pulsa para filtrar</span>
+                    </button>
                 </div>
 
                 <div class="section-head">
-                    <h2>Nodos activos</h2>
-                    <div class="line"></div>
+                    <h2>Equipos <span class="filtro-estado-info" id="filtro-estado-info" role="status"></span></h2>
+                    <label class="campo campo-buscar-equipo">
+                        <span class="visually-hidden">Buscar equipo o alumno</span>
+                        <input type="search" id="equipos-q" placeholder="Buscar equipo o alumno" autocomplete="off">
+                    </label>
+                    <span class="section-meta"><span id="total-computers">–</span> registrados <button type="button" class="btn-link-inline" id="unknown-computers" data-estado="desconocido" aria-pressed="false" hidden></button> · <span id="refresh-info">cargando</span></span>
                 </div>
-                <div id="computers-container" class="computers-grid"></div>
+                <p class="equipos-status" id="equipos-status" role="status" aria-live="polite"></p>
+                <div class="server-warning" id="server-warning" role="alert" hidden>
+                    <strong>Sin conexión con el servidor.</strong> Los estados que ves pueden no ser actuales. Se sigue intentando cada 5 segundos.
+                </div>
+                <div id="computers-container" class="computers-grid" aria-busy="true">
+                    <div class="empty-msg">Cargando equipos...</div>
+                </div>
+            </section>
 
-            </div><!-- /view-csv -->
-
-            <!-- ── Vista: Estadísticas ───────────────────── -->
-            <div class="view" id="view-stats">
-
+            <!-- Vista: Padrón -->
+            <section class="view" id="view-padron" aria-labelledby="titulo-padron">
                 <div class="page-header">
-                    <h1>Estadísticas de Uso</h1>
-                    <p>Actividad del laboratorio registrada en base de datos</p>
+                    <h1 id="titulo-padron">Padrón de alumnos</h1>
+                    <p>La lista de matrículas que el kiosko acepta. Se reemplaza completa cada vez que subes un archivo nuevo. <a class="ayuda-enlace" href="#ayuda-padron" onclick="irAyuda('ayuda-padron'); return false;">¿Cómo saco el archivo del sistema de la biblioteca?</a></p>
                 </div>
 
-                <div class="stats-summary">
-                    <div class="sm-card">
-                        <div class="sm-label">Alumnos registrados</div>
-                        <div class="sm-value" id="st-total-alumnos">—</div>
+                <div class="panel">
+                    <h2 class="panel-title">Padrón actual</h2>
+                    <p class="padron-count"><strong id="padron-count">–</strong> alumnos pueden iniciar sesión en los equipos.</p>
+                    <p class="help-text" id="padron-origen"></p>
+                    <div id="padron-anterior" hidden>
+                        <p class="help-text" id="padron-anterior-texto"></p>
+                        <button type="button" class="btn-secondary" id="padron-restore"></button>
+                        <div id="restore-confirm" class="confirm-box" tabindex="-1" hidden>
+                            <p id="restore-confirm-text"></p>
+                            <div class="confirm-actions">
+                                <button type="button" class="btn-primary" id="restore-confirm-btn">Restaurar el padrón anterior</button>
+                                <button type="button" class="btn-secondary" id="restore-cancel">Cancelar</button>
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title">Subir un padrón nuevo</h2>
+                    <p class="help-text">Sube el archivo CSV tal como lo exporta el sistema de la biblioteca. Se usan las columnas <strong>Carnet</strong> (la matrícula), <strong>Apellido(s)</strong>, <strong>Nombre(s)</strong> y <strong>Carrera</strong>; las demás se ignoran.</p>
+
+                    <button type="button" id="drop-zone" aria-describedby="drop-help">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span>Elegir archivo CSV</span>
+                        <span class="drop-hint" id="drop-help">o arrástralo aquí</span>
+                    </button>
+                    <input type="file" id="fileInput" accept=".csv,text/csv" hidden>
+
+                    <div id="upload-confirm" class="confirm-box" tabindex="-1" hidden>
+                        <p id="upload-confirm-text"></p>
+                        <p class="help-text" id="upload-confirm-nota">El padrón actual se conserva y podrás restaurarlo si te equivocaste de archivo.</p>
+                        <div class="confirm-actions">
+                            <button type="button" class="btn-primary" id="upload-confirm-btn">Reemplazar padrón</button>
+                            <button type="button" class="btn-secondary" id="upload-cancel">Cancelar</button>
+                        </div>
+                    </div>
+
+                    <div id="upload-msg" role="status" aria-live="polite"></div>
+                </div>
+            </section>
+
+            <!-- Vista: Ayuda -->
+            <section class="view ayuda" id="view-ayuda" aria-labelledby="titulo-ayuda">
+                <div class="ayuda-layout">
+                <nav class="ayuda-indice" id="ayuda-indice" aria-labelledby="ayuda-indice-titulo">
+                    <div class="ayuda-indice-titulo" id="ayuda-indice-titulo">En esta página</div>
+                    <a href="#ayuda-equipos" onclick="irAyuda('ayuda-equipos'); return false;">Equipos</a>
+                    <a href="#ayuda-padron" onclick="irAyuda('ayuda-padron'); return false;">Padrón</a>
+                    <a href="#ayuda-estadisticas" onclick="irAyuda('ayuda-estadisticas'); return false;">Estadísticas</a>
+                    <a href="#ayuda-bitacora" onclick="irAyuda('ayuda-bitacora'); return false;">Bitácora</a>
+                </nav>
+                <div class="ayuda-contenido">
+                <div class="page-header">
+                    <h1 id="titulo-ayuda">Ayuda</h1>
+                    <p>Qué significa cada cosa que ves en el panel y qué hacer en las situaciones más comunes.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-equipos">Equipos: los cuatro estados</h2>
+                    <dl class="ayuda-lista">
+                        <dt><span class="status-badge libre"><span class="status-dot" aria-hidden="true"></span>Libre</span></dt>
+                        <dd>La máquina está encendida y el kiosko muestra la pantalla de bloqueo, esperando que un alumno teclee su matrícula. Puedes mandar a alguien a usarla.</dd>
+                        <dt><span class="status-badge en-uso"><span class="status-dot" aria-hidden="true"></span>En uso</span></dt>
+                        <dd>Un alumno inició sesión. La tarjeta muestra su nombre y matrícula. Cuando cierre sesión o apague la máquina, vuelve a Libre o pasa a Sin conexión.</dd>
+                        <dt><span class="status-badge sin-conexion"><span class="status-dot" aria-hidden="true"></span>Sin conexión</span></dt>
+                        <dd>La máquina dejó de mandar señal hace más de 15 segundos. Lo más común es que esté apagada. También puede ser un cable de red suelto o que el programa del kiosko se haya cerrado. La tarjeta dice desde cuándo no responde.</dd>
+                        <dt><span class="status-badge desconocido"><span class="status-dot" aria-hidden="true"></span>Sin información</span></dt>
+                        <dd>La máquina manda señal pero el kiosko no reportó si está bloqueada o en uso. Suele pasar unos segundos al arrancar. Si se queda así, reinicia el programa del kiosko en esa máquina.</dd>
+                    </dl>
+                    <h3>Si una máquina no responde</h3>
+                    <ol class="ayuda-pasos">
+                        <li>Revisa que esté encendida y que el cable de red esté conectado.</li>
+                        <li>Revisa que el programa del kiosko esté abierto. Si no, ábrelo; la máquina vuelve a aparecer sola en unos segundos.</li>
+                        <li>Si la máquina ya no está en el laboratorio, abre <em>Detalles del equipo</em> en su tarjeta y elige <em>Quitar de esta lista</em>. Solo desaparece de la lista; si algún día vuelve a encenderse, reaparece.</li>
+                    </ol>
+                    <h3>La franja "Sin conexión con el servidor"</h3>
+                    <p>Aparece cuando este panel no logra hablar con el servidor. Los estados que ves pueden estar viejos. Se reintenta solo cada 5 segundos; si dura más de un minuto, avisa a quien administra el servidor.</p>
+                    <h3>Para ver solo un tipo de equipo</h3>
+                    <p>Pulsa uno de los tres contadores de arriba, por ejemplo <em>Libres</em>. Vuelve a pulsarlo para ver todos.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-padron">Padrón de alumnos</h2>
+                    <p>El padrón es la lista de matrículas que el kiosko acepta. Si un alumno no está en el padrón, la máquina no lo deja entrar.</p>
+                    <h3>Cómo sacar el archivo del sistema de la biblioteca</h3>
+                    <ol class="ayuda-pasos">
+                        <li>En el sistema de la biblioteca, exporta la lista de usuarios en formato <strong>CSV</strong>. No hace falta quitar columnas: el panel usa solo <strong>Carnet</strong> (la matrícula), <strong>Apellido(s)</strong>, <strong>Nombre(s)</strong> y <strong>Carrera</strong>, e ignora las demás.</li>
+                        <li>En el módulo <em>Padrón</em>, elige el archivo o arrástralo a la zona punteada.</li>
+                        <li>Lee la confirmación: dice cuántos alumnos tiene el padrón actual y cuántos registros trae el archivo. Si cuadra, pulsa <em>Reemplazar padrón</em>.</li>
+                    </ol>
+                    <h3>Si subiste el archivo equivocado</h3>
+                    <p>El padrón que había antes se conserva. En el mismo módulo, pulsa <em>Restaurar el padrón anterior</em>. El que acabas de subir queda guardado a su vez, así que puedes volver a cambiar de opinión.</p>
+                    <h3>El usuario invitado</h3>
+                    <p>Además de los alumnos del archivo, siempre se agrega una matrícula de invitado para personas que no están en el padrón. Quien administra el servidor puede cambiarla o quitarla.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-estadisticas">Estadísticas</h2>
+                    <p>Una <strong>entrada</strong> es cada vez que un alumno inicia sesión en un equipo. Si la misma persona entra tres veces en el día, cuentan tres entradas. Las salidas no se cuentan.</p>
+                    <p><em>Este semestre</em> va de enero a julio o de agosto a diciembre, según la fecha de hoy. <em>Esta semana</em> empieza el lunes.</p>
+                    <h3>El reporte</h3>
+                    <p>Desde <em>Generar reporte</em> eliges el periodo y obtienes el mismo documento de tres formas: verlo en pantalla e imprimirlo, descargarlo como PDF, o como Excel con una hoja por tabla. Trae entradas del periodo, alumnos distintos, equipos y carreras con más uso, horas pico y entradas por día.</p>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title" id="ayuda-bitacora">Bitácora</h2>
+                    <p>Cada fila es un evento: <span class="badge badge-entrada">Entrada</span> cuando un alumno inicia sesión, <span class="badge badge-salida">Salida</span> cuando la cierra, y <span class="badge badge-salida">Salida (equipo apagado)</span> cuando la máquina se apagó o se desconectó con la sesión abierta.</p>
+                    <h3>Para buscar a alguien</h3>
+                    <p>Escribe en <em>Buscar</em> el nombre del alumno, su matrícula completa o el nombre del equipo. Puedes combinarlo con el tipo de evento y un rango de fechas. <em>Limpiar filtros</em> vuelve a mostrar todo.</p>
+                    <h3>Para llevarte los datos</h3>
+                    <p><em>Descargar</em> genera un archivo CSV que se abre en Excel. Si tienes filtros puestos, solo se descarga lo que estás viendo; el nombre del archivo lleva el rango de fechas.</p>
+                </div>
+
+                </div><!-- /ayuda-contenido -->
+                </div><!-- /ayuda-layout -->
+            </section>
+
+            <dialog id="dialogo-quitar" class="dialogo" aria-labelledby="quitar-titulo">
+                <form method="dialog">
+                    <h2 id="quitar-titulo">¿Quitar <span id="quitar-nombre"></span> de esta lista?</h2>
+                    <p>Solo desaparece de la lista. Si la máquina sigue encendida, volverá a aparecer sola en cuanto mande señal.</p>
+                    <div class="confirm-actions">
+                        <button type="button" class="btn-primary" id="quitar-confirmar">Quitar de esta lista</button>
+                        <button type="button" class="btn-secondary" id="quitar-cancelar" autofocus>Cancelar</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <!-- Vista: Estadísticas -->
+            <section class="view" id="view-stats" aria-labelledby="titulo-stats">
+                <div class="page-header">
+                    <h1 id="titulo-stats">Estadísticas de uso</h1>
+                    <p>Cuántas entradas de alumnos han registrado los equipos y desde qué carreras. <a class="ayuda-enlace" href="#ayuda-estadisticas" onclick="irAyuda('ayuda-estadisticas'); return false;">¿Qué cuenta como entrada?</a></p>
+                </div>
+
+                <div class="stats-summary" aria-label="Ingresos por periodo">
                     <div class="sm-card">
-                        <div class="sm-label">Logins hoy</div>
-                        <div class="sm-value" id="st-logins-hoy">—</div>
+                        <div class="sm-label">Entradas hoy</div>
+                        <div class="sm-value" id="st-logins-hoy">–</div>
                     </div>
                     <div class="sm-card">
                         <div class="sm-label">Esta semana</div>
-                        <div class="sm-value" id="st-logins-semana">—</div>
+                        <div class="sm-value" id="st-logins-semana">–</div>
                     </div>
                     <div class="sm-card">
                         <div class="sm-label">Este mes</div>
-                        <div class="sm-value" id="st-logins-mes">—</div>
+                        <div class="sm-value" id="st-logins-mes">–</div>
                     </div>
                     <div class="sm-card">
-                        <div class="sm-label">Este semestre</div>
-                        <div class="sm-value" id="st-logins-semestre">—</div>
+                        <div class="sm-label">Este semestre <span class="sm-sub" id="semestre-desde"></span></div>
+                        <div class="sm-value" id="st-logins-semestre">–</div>
                     </div>
                 </div>
 
-                <!-- Actividad reciente — ocupa el ancho completo -->
-                <div class="panel" style="margin-bottom:16px;">
-                    <div class="panel-title">Actividad reciente</div>
+                <div class="panel">
+                    <h2 class="panel-title">Generar reporte</h2>
+                    <p class="help-text">Un documento con las cifras del periodo: entradas, alumnos distintos, equipos y carreras con más uso, y horas pico. Se puede ver en pantalla, imprimir, o descargar como PDF o Excel.</p>
+                    <form class="reporte-form" id="reporte-form" onsubmit="return false">
+                        <label class="campo">
+                            <span>Periodo</span>
+                            <select id="reporte-periodo">
+                                <option value="mes">Este mes</option>
+                                <option value="mes-anterior">Mes anterior</option>
+                                <option value="semestre">Este semestre</option>
+                                <option value="rango">Rango de fechas</option>
+                            </select>
+                        </label>
+                        <div class="reporte-fechas" id="reporte-fechas" hidden>
+                            <label class="campo"><span>Desde</span><input type="date" id="reporte-desde"></label>
+                            <label class="campo"><span>Hasta</span><input type="date" id="reporte-hasta"></label>
+                        </div>
+                        <div class="reporte-acciones">
+                            <a class="btn-primary" id="reporte-ver" href="/reporte?periodo=mes" target="_blank" rel="noopener" aria-disabled="false" title="Se abre en otra pestaña">Ver reporte
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                <span class="visually-hidden abre-pestana">(se abre en otra pestaña)</span></a>
+                            <a class="btn-secondary" id="reporte-pdf" href="/reporte.pdf?periodo=mes" download aria-disabled="false">Descargar PDF</a>
+                            <a class="btn-secondary" id="reporte-xlsx" href="/reporte.xlsx?periodo=mes" download aria-disabled="false">Descargar Excel</a>
+                        </div>
+                        <p class="reporte-aviso" id="reporte-aviso" role="status" aria-live="polite"></p>
+                        <p class="reporte-status" id="reporte-status" role="status" aria-live="polite"></p>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <h2 class="panel-title">Actividad reciente</h2>
                     <div id="st-recientes"><div class="empty-msg">Cargando...</div></div>
                 </div>
 
-                <!-- Tres paneles de barras compactos en una sola fila -->
                 <div class="stats-three-col">
                     <div class="panel">
-                        <div class="panel-title">PCs más activas</div>
+                        <h2 class="panel-title">Equipos más usados</h2>
                         <div id="st-top-pcs"><div class="empty-msg">Cargando...</div></div>
                     </div>
                     <div class="panel">
-                        <div class="panel-title">Top carreras base de datos</div>
+                        <h2 class="panel-title">Carreras en el padrón</h2>
                         <div id="st-dist-carreras"><div class="empty-msg">Cargando...</div></div>
                     </div>
                     <div class="panel">
-                        <div class="panel-title">Top carreras — uso real</div>
+                        <h2 class="panel-title">Carreras con más uso</h2>
                         <div id="st-top-carreras-uso"><div class="empty-msg">Cargando...</div></div>
                     </div>
                 </div>
+            </section>
 
-
-            </div><!-- /view-stats -->
-            <div class="view" id="view-logs">
-                <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <h1>Bitácora General</h1>
-                            <p>Historial completo y paginado de eventos del laboratorio</p>
-                        </div>
-                        <button class="btn-page" style="padding: 10px 16px; font-size: 0.9em;" onclick="window.location.href='/api/logs/export'">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            Exportar CSV
-                        </button>
+            <!-- Vista: Bitácora -->
+            <section class="view" id="view-logs" aria-labelledby="titulo-logs">
+                <div class="page-header with-action">
+                    <div>
+                        <h1 id="titulo-logs">Bitácora</h1>
+                        <p>Cada entrada y salida de los alumnos en los equipos, de la más reciente a la más antigua. <a class="ayuda-enlace" href="#ayuda-bitacora" onclick="irAyuda('ayuda-bitacora'); return false;">¿Cómo busco a alguien?</a></p>
                     </div>
+                    <div class="export-block">
+                        <a class="btn-secondary" id="logs-export" href="/api/logs/export" download aria-describedby="logs-export-info">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Descargar bitácora completa
+                        </a>
+                        <span class="export-info" id="logs-export-info">Archivo CSV para abrir en Excel</span>
+                    </div>
+                </div>
                 <div class="panel">
-                    <div class="panel-title">Todos los registros</div>
+                    <h2 class="panel-title">Registros</h2>
+                    <form class="filtros" id="logs-filtros" onsubmit="return false" aria-label="Buscar y filtrar la bitácora">
+                        <label class="campo campo-buscar">
+                            <span>Buscar</span>
+                            <input type="search" id="logs-q" placeholder="Equipo, matrícula o nombre del alumno" autocomplete="off">
+                        </label>
+                        <label class="campo">
+                            <span>Evento</span>
+                            <select id="logs-evento">
+                                <option value="">Entradas y salidas</option>
+                                <option value="entrada">Solo entradas</option>
+                                <option value="salida">Solo salidas</option>
+                            </select>
+                        </label>
+                        <label class="campo"><span>Desde</span><input type="date" id="logs-desde"></label>
+                        <label class="campo"><span>Hasta</span><input type="date" id="logs-hasta"></label>
+                        <button type="button" class="btn-secondary" id="logs-clear" hidden>Limpiar filtros</button>
+                        <p class="reporte-aviso" id="logs-aviso" role="status" aria-live="polite"></p>
+                    </form>
                     <div id="logs-container"><div class="empty-msg">Cargando...</div></div>
                     <div class="pagination" id="logs-pagination"></div>
                 </div>
-            </div>
+            </section>
 
-        </div><!-- /content-area -->
-    </div><!-- /app-body -->
+        </main>
+    </div>
 
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>

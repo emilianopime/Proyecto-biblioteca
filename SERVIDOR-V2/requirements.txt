@@ -6,3 +6,6 @@ pandas>=2.1.0
 psycopg2-binary
 # Variables de entorno (opcional pero recomendado para Flask)
 python-dotenv
+# Reporte de estadisticas: PDF y Excel
+weasyprint>=62
+openpyxl>=3.1

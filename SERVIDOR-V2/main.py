@@ -34,7 +34,9 @@ import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, session, Response
 from auth import auth_bp, login_required
-from padron import PadronInvalido, agregar_invitado, cargar_padron, leer_padron
+from padron import (PadronInvalido, SinPadronAnterior, agregar_invitado, cargar_padron,
+                    estado_padron, leer_padron, restaurar_padron)
+from reporte import PeriodoInvalido, calcular_reporte, horas_pico, inicio_semestre, rango_periodo, reporte_xlsx
 load_dotenv()
 import logging
 
@@ -257,13 +259,37 @@ def upload():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         try:
-            cargar_padron(agregar_invitado(df), conn)
+            cargar_padron(agregar_invitado(df), conn, archivo=archivo.filename)
         finally:
             conn.close()
     except Exception as e:
         return jsonify({"error": f"Error al guardar en la base de datos: {e}"}), 500
 
     return jsonify({"message": f"Exito: se cargaron {len(df)} alumnos"})
+
+@app.route("/api/padron")
+@login_required
+def api_padron():
+    """Estado del padron: cuantos alumnos, de que archivo, y si hay uno anterior."""
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        return jsonify(estado_padron(conn))
+    finally:
+        conn.close()
+
+
+@app.route("/api/padron/restaurar", methods=["POST"])
+@login_required
+def api_padron_restaurar():
+    """Vuelve al padron anterior. El actual queda guardado como anterior."""
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        return jsonify(restaurar_padron(conn))
+    except SinPadronAnterior as e:
+        return jsonify({"error": str(e)}), 409
+    finally:
+        conn.close()
+
 
 @app.route("/api/computers")
 @login_required
@@ -328,7 +354,7 @@ def get_stats():
 
         cursor.execute(
             "SELECT COUNT(*) FROM bitacora_uso "
-            "WHERE evento = 'LOGIN' AND timestamp >= NOW() - INTERVAL '6 months'"
+            "WHERE evento = 'LOGIN' AND (timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua')::date >= %s", (inicio_semestre(datetime.now().date()),)
         )
         logins_semestre = cursor.fetchone()[0]
 
@@ -413,25 +439,74 @@ def get_stats():
         return jsonify({"error": str(e)}), 500
 
 
+class FiltroInvalido(ValueError):
+    pass
+
+
+def filtros_bitacora(args):
+    """
+    Traduce los parametros q, evento, desde y hasta a un WHERE con sus valores.
+    q busca en el nombre del equipo, la matricula exacta o el nombre del alumno.
+    Las fechas se comparan en hora de Chihuahua.
+    """
+    condiciones, valores = [], []
+    q = (args.get("q") or "").strip()
+    if q:
+        condiciones.append(
+            "(b.computer_id ILIKE %s OR CAST(b.matricula AS TEXT) = %s "
+            "OR COALESCE(a.firstname, '') || ' ' || COALESCE(a.surname, '') ILIKE %s)"
+        )
+        valores += [f"%{q}%", q, f"%{q}%"]
+    evento = (args.get("evento") or "").strip().lower()
+    if evento == "entrada":
+        condiciones.append("b.evento = 'LOGIN'")
+    elif evento == "salida":
+        condiciones.append("b.evento LIKE 'LOGOUT%%'")
+    for nombre, operador in (("desde", ">="), ("hasta", "<=")):
+        valor = (args.get(nombre) or "").strip()
+        if valor:
+            try:
+                fecha = datetime.strptime(valor, "%Y-%m-%d").date()
+            except ValueError:
+                raise FiltroInvalido(f"La fecha '{nombre}' debe tener la forma AAAA-MM-DD")
+            condiciones.append(f"(b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua')::date {operador} %s")
+            valores.append(fecha)
+    where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+    return where, valores
+
+
+def nombre_export_bitacora(args):
+    desde, hasta = (args.get("desde") or "").strip(), (args.get("hasta") or "").strip()
+    if desde or hasta:
+        return f"bitacora_laboratorio_{desde or 'inicio'}_{hasta or 'hoy'}.csv"
+    return "bitacora_laboratorio.csv"
+
+
 @app.route("/api/logs")
 @login_required
 def get_logs():
-    """Devuelve el historial completo paginado (20 por página)"""
-    page  = int(request.args.get("page", 1))
+    """Devuelve el historial paginado (20 por pagina), con filtros opcionales."""
+    page  = max(1, int(request.args.get("page", 1)))
     limit = 20
     offset = (page - 1) * limit
+
+    try:
+        where, valores = filtros_bitacora(request.args)
+    except FiltroInvalido as e:
+        return jsonify({"error": str(e)}), 400
 
     try:
         conn   = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
 
-        # 1. Obtener el total de páginas
-        cursor.execute("SELECT COUNT(*) FROM bitacora_uso")
+        cursor.execute(
+            f"SELECT COUNT(*) FROM bitacora_uso b LEFT JOIN alumnos a ON b.matricula = a.cardnumber {where}",
+            valores,
+        )
         total_records = cursor.fetchone()[0]
         total_pages   = (total_records + limit - 1) // limit
 
-        # 2. Obtener los 20 registros de esta página específica
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 b.computer_id,
                 b.matricula,
@@ -442,9 +517,10 @@ def get_logs():
                 b.evento
             FROM bitacora_uso b
             LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            {where}
             ORDER BY b.timestamp DESC
             LIMIT %s OFFSET %s
-        """, (limit, offset))
+        """, valores + [limit, offset])
 
         logs = []
         for r in cursor.fetchall():
@@ -462,6 +538,7 @@ def get_logs():
 
         return jsonify({
             "logs":         logs,
+            "total":        total_records,
             "current_page": page,
             "total_pages":  total_pages if total_pages > 0 else 1
         })
@@ -470,27 +547,103 @@ def get_logs():
         return jsonify({"error": str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Reporte de estadisticas por periodo: JSON, pagina imprimible, PDF y Excel
+# ---------------------------------------------------------------------------
+def _armar_reporte():
+    """Lee el periodo de la URL y calcula el reporte. Lanza PeriodoInvalido."""
+    desde, hasta, etiqueta = rango_periodo(
+        request.args.get("periodo", "mes"),
+        desde=request.args.get("desde"), hasta=request.args.get("hasta"),
+    )
+    conn = psycopg2.connect(**DB_CONFIG)
+    try:
+        return calcular_reporte(conn, desde, hasta, etiqueta)
+    finally:
+        conn.close()
+
+
+def _nombre_archivo(datos, extension):
+    p = datos["periodo"]
+    return f"reporte_laboratorio_{p['desde']}_{p['hasta']}.{extension}"
+
+
+def _html_reporte(datos, para_pdf=False):
+    return render_template("reporte.html", r=datos, picos=horas_pico(datos),
+                           max_hora=max(datos["horas"] or [1]) or 1,
+                           max_dia=max([d["total"] for d in datos["dias"]] or [1]) or 1,
+                           para_pdf=para_pdf, args=request.args)
+
+
+@app.route("/api/reporte")
+@login_required
+def api_reporte():
+    try:
+        return jsonify(_armar_reporte())
+    except PeriodoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/reporte")
+@login_required
+def reporte_html():
+    try:
+        return _html_reporte(_armar_reporte())
+    except PeriodoInvalido as e:
+        return render_template("reporte.html", error=str(e)), 400
+
+
+@app.route("/reporte.pdf")
+@login_required
+def reporte_pdf():
+    try:
+        datos = _armar_reporte()
+    except PeriodoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+    from weasyprint import HTML  # import tardio: carga librerias de sistema
+    pdf = HTML(string=_html_reporte(datos, para_pdf=True), base_url=request.url_root).write_pdf()
+    return Response(pdf, mimetype="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={_nombre_archivo(datos, 'pdf')}"})
+
+
+@app.route("/reporte.xlsx")
+@login_required
+def reporte_excel():
+    try:
+        datos = _armar_reporte()
+    except PeriodoInvalido as e:
+        return jsonify({"error": str(e)}), 400
+    return Response(reporte_xlsx(datos),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f"attachment; filename={_nombre_archivo(datos, 'xlsx')}"})
+
+
 @app.route('/api/logs/export', methods=['GET'])
 @login_required
 def export_logs_csv():
+    """Descarga la bitacora como CSV, con los mismos filtros que la vista."""
+    try:
+        where, valores = filtros_bitacora(request.args)
+    except FiltroInvalido as e:
+        return jsonify({"error": str(e)}), 400
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
 
-        # Consulta corregida: usando a.sort1 y la zona horaria correcta de Chihuahua
-        query = """
-            SELECT 
-                b.computer_id, 
-                b.matricula, 
+        query = f"""
+            SELECT
+                b.computer_id,
+                b.matricula,
                 COALESCE(a.firstname || ' ' || a.surname, 'Desconocido') AS nombre,
                 COALESCE(a.sort1, 'N/A') AS carrera,
                 TO_CHAR(b.timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Chihuahua', 'YYYY-MM-DD HH24:MI:SS') AS hora,
                 b.evento
             FROM bitacora_uso b
             LEFT JOIN alumnos a ON b.matricula = a.cardnumber
+            {where}
             ORDER BY b.timestamp DESC;
         """
-        cursor.execute(query)
+        cursor.execute(query, valores)
         rows = cursor.fetchall()
 
         cursor.close()
@@ -512,7 +665,7 @@ def export_logs_csv():
         return Response(
             output,
             mimetype="text/csv",
-            headers={"Content-Disposition": "attachment;filename=bitacora_laboratorio.csv"}
+            headers={"Content-Disposition": f"attachment;filename={nombre_export_bitacora(request.args)}"}
         )
 
     except Exception as e:
