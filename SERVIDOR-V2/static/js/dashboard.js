@@ -339,6 +339,8 @@ function setView(nombre) {
         loadLogs(1);
     } else if (nombre === 'padron') {
         cargarConteoPadron();
+    } else if (nombre === 'ayuda' && !document.querySelector('#ayuda-indice a[aria-current="true"]')) {
+        marcarSeccionAyuda('ayuda-equipos');
     }
 }
 
