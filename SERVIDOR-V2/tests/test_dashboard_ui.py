@@ -83,9 +83,9 @@ def navegador():
         b.close()
 
 
-def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_sesion=True, upload=None, padron=PADRON):
+def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_sesion=True, upload=None, padron=PADRON, esquema="dark"):
     """Abre el dashboard con respuestas de API simuladas y devuelve (page, peticiones)."""
-    ctx = navegador.new_context(viewport={"width": ancho, "height": alto}, locale="es-MX")
+    ctx = navegador.new_context(viewport={"width": ancho, "height": alto}, locale="es-MX", color_scheme=esquema)
     if con_sesion:
         ctx.add_cookies([{"name": "session", "value": servidor["cookie"], "domain": "127.0.0.1", "path": "/"}])
     page = ctx.new_page()
@@ -802,3 +802,89 @@ def test_cada_vista_enlaza_a_su_ayuda(navegador, servidor):
         enlace.click()
         assert page.locator("#view-ayuda").is_visible()
         assert page.evaluate(f"document.getElementById('{ancla}') !== null")
+
+
+# ---------------------------------------------------------------------------
+# Tema claro
+# ---------------------------------------------------------------------------
+
+def luminosidad_fondo(page, selector="body"):
+    return page.evaluate(f"""() => {{
+        const c = getComputedStyle(document.querySelector('{selector}')).backgroundColor.match(/\\d+/g).map(Number);
+        return (c[0] + c[1] + c[2]) / 3;
+    }}""")
+
+
+def test_con_preferencia_del_sistema_clara_el_panel_es_claro(navegador, servidor):
+    page, _ = abrir(navegador, servidor, esquema="light")
+    assert luminosidad_fondo(page) > 200
+    assert luminosidad_fondo(page, ".panel") > 200
+
+
+def test_por_defecto_sigue_oscuro(navegador, servidor):
+    page, _ = abrir(navegador, servidor, esquema="dark")
+    assert luminosidad_fondo(page) < 60
+
+
+def test_el_boton_de_tema_cambia_y_lo_recuerda(navegador, servidor):
+    page, _ = abrir(navegador, servidor, esquema="dark")
+    boton = page.locator("#theme-toggle")
+    assert boton.count() == 1 and boton.get_attribute("aria-label")
+
+    boton.click()
+    assert page.evaluate("document.documentElement.dataset.theme") == "light"
+    assert luminosidad_fondo(page) > 200
+
+    page.reload()
+    page.wait_for_selector(".computer-card")
+    assert page.evaluate("document.documentElement.dataset.theme") == "light"
+    assert luminosidad_fondo(page) > 200
+
+    page.locator("#theme-toggle").click()
+    assert luminosidad_fondo(page) < 60
+    page.evaluate("localStorage.clear()")
+
+
+@pytest.mark.parametrize("selector", [
+    ".panel-title", ".qs-label", ".qs-hint", ".nav-section", ".brand-sub", ".page-header p", ".section-meta",
+    ".btn-logout", ".nav-item[aria-current='page'] .nav-label", ".card-meta", ".card-state-text", ".ayuda-enlace",
+    ".computer-card[data-id='LAB-PC-02'] .status-badge", ".computer-card[data-id='LAB-PC-01'] .status-badge",
+    ".computer-card[data-id='LAB-PC-06'] .status-badge", ".computer-card[data-id='LAB-PC-01'] .card-user-meta",
+])
+def test_contraste_en_tema_claro(navegador, servidor, selector):
+    page, _ = abrir(navegador, servidor, esquema="light")
+    ratio = contraste(page, selector)
+    assert ratio is not None, selector
+    assert ratio >= 4.5, f"{selector}: {ratio:.2f}:1"
+
+
+def test_contraste_en_tema_claro_en_estadisticas_y_padron(navegador, servidor):
+    page, _ = abrir(navegador, servidor, esquema="light")
+    page.evaluate("setView('stats')"); page.wait_for_selector("#st-recientes table")
+    for sel in (".badge-entrada", ".st-table th", ".st-table td.ts", ".bar-count", "#reporte-ver", ".sm-label"):
+        assert contraste(page, sel) >= 4.5, sel
+    ir_a_padron(page); elegir_archivo(page)
+    for sel in ("#upload-confirm-btn", "#upload-cancel", ".help-text", "#padron-restore"):
+        assert contraste(page, sel) >= 4.5, sel
+
+
+def test_login_en_tema_claro_es_claro_y_legible(navegador, servidor):
+    ctx = navegador.new_context(viewport={"width": 1440, "height": 900}, color_scheme="light")
+    page = ctx.new_page()
+    page.goto(servidor["url"] + "/login")
+    assert luminosidad_fondo(page) > 200
+    for sel in (".field label", ".login-footer", ".brand-subtitle", ".btn-login", ".login-card h2"):
+        assert contraste(page, sel) >= 4.5, sel
+
+
+def test_el_dialogo_de_quitar_aparece_centrado(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("document.querySelector('.computer-card[data-id=\\'LAB-PC-02\\'] details').open = true")
+    page.click(".computer-card[data-id='LAB-PC-02'] .btn-link")
+
+    caja = page.locator("dialog#dialogo-quitar").bounding_box()
+    centro_x = caja["x"] + caja["width"] / 2
+    centro_y = caja["y"] + caja["height"] / 2
+    assert abs(centro_x - 720) < 40, caja
+    assert abs(centro_y - 450) < 60, caja
+    page.click("#quitar-cancelar")

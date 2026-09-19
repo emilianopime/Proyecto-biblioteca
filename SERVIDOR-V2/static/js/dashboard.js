@@ -282,6 +282,15 @@ setInterval(() => {
 }, 1000);
 loadComputers();
 
+/* ── Tema claro u oscuro ────────────────────────────── */
+function alternarTema() {
+    const raiz = document.documentElement;
+    const claroAhora = raiz.dataset.theme === 'light'
+        || (!raiz.dataset.theme && matchMedia('(prefers-color-scheme: light)').matches);
+    raiz.dataset.theme = claroAhora ? 'dark' : 'light';
+    try { localStorage.setItem('tema', raiz.dataset.theme); } catch (e) { /* sin almacenamiento */ }
+}
+
 /* ── Sidebar y vistas ───────────────────────────────── */
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');

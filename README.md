@@ -188,6 +188,12 @@ Para agregar otro encabezado aceptado, edita el diccionario `ALIAS` en `SERVIDOR
 
 ---
 
+## Tema claro u oscuro
+
+El panel sigue la preferencia del sistema operativo y se puede cambiar con el botón de sol o luna en la barra superior. La elección se guarda en el navegador. Los dos temas cumplen contraste AA en todo el texto.
+
+---
+
 ## 6. Reporte de uso por periodo
 
 En **Estadísticas**, el bloque *Generar reporte* permite elegir el periodo (este mes, mes anterior, semestre actual o un rango de fechas) y obtener el mismo contenido en tres formas:
