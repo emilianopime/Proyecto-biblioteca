@@ -403,15 +403,17 @@ body::before {
 /* ── Ayuda ───────────────────────────────────────────── */
 .ayuda-enlace { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .ayuda-enlace:hover { color: var(--accent-hover); }
-/* En pantallas anchas el bloque de lectura mas el indice se centra, en vez de pegarse a la izquierda. */
-.ayuda .page-header, .ayuda-layout { max-width: calc(76ch + 24px + 200px); margin-inline: auto; }
-.ayuda-layout { display: grid; grid-template-columns: minmax(0, 76ch) 200px; gap: 24px; align-items: start; }
+/* Tres columnas: menu de la app, texto centrado en lo que queda, e indice anclado a la derecha. */
+.ayuda-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 32px; align-items: start; }
 .ayuda-contenido { min-width: 0; grid-column: 1; grid-row: 1; }
+.ayuda-contenido > * { max-width: 76ch; margin-inline: auto; }
 .ayuda-indice {
     grid-column: 2; grid-row: 1;
-    position: sticky; top: 8px; display: flex; flex-direction: column; gap: 2px;
+    position: sticky; top: 8px;
+    display: flex; flex-direction: column; gap: 2px;
     padding: 4px 0 4px 14px; border-left: 1px solid var(--border-dim);
 }
+.ayuda-indice-titulo { font-size: var(--fs-xs); font-weight: 600; color: var(--text-3); padding: 4px 10px 8px; letter-spacing: .02em; }
 .ayuda-indice a {
     color: var(--text-2); text-decoration: none; font-size: var(--fs-sm); padding: 6px 10px;
     border-radius: var(--r); position: relative;
@@ -427,7 +429,8 @@ body::before {
     .ayuda-layout { grid-template-columns: minmax(0, 1fr); }
     .ayuda-indice { grid-column: 1; grid-row: 1; }
     .ayuda-contenido { grid-column: 1; grid-row: 2; }
-    .ayuda-indice { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; padding: 0; border-left: 0; margin-bottom: 12px; }
+    .ayuda-indice { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0; border-left: 0; margin-bottom: 12px; }
+    .ayuda-indice-titulo { padding: 4px 6px 4px 0; }
     .ayuda-indice a[aria-current="true"]::before { display: none; }
 }
 .ayuda h3 { font-size: var(--fs-md); font-weight: 600; margin: 16px 0 6px; }

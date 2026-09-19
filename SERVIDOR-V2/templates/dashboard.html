@@ -187,19 +187,19 @@
 
             <!-- Vista: Ayuda -->
             <section class="view ayuda" id="view-ayuda" aria-labelledby="titulo-ayuda">
-                <div class="page-header">
-                    <h1 id="titulo-ayuda">Ayuda</h1>
-                    <p>Qué significa cada cosa que ves en el panel y qué hacer en las situaciones más comunes.</p>
-                </div>
-
                 <div class="ayuda-layout">
-                <nav class="ayuda-indice" id="ayuda-indice" aria-label="Secciones de la ayuda">
+                <nav class="ayuda-indice" id="ayuda-indice" aria-labelledby="ayuda-indice-titulo">
+                    <div class="ayuda-indice-titulo" id="ayuda-indice-titulo">En esta página</div>
                     <a href="#ayuda-equipos" onclick="irAyuda('ayuda-equipos'); return false;">Equipos</a>
                     <a href="#ayuda-padron" onclick="irAyuda('ayuda-padron'); return false;">Padrón</a>
                     <a href="#ayuda-estadisticas" onclick="irAyuda('ayuda-estadisticas'); return false;">Estadísticas</a>
                     <a href="#ayuda-bitacora" onclick="irAyuda('ayuda-bitacora'); return false;">Bitácora</a>
                 </nav>
                 <div class="ayuda-contenido">
+                <div class="page-header">
+                    <h1 id="titulo-ayuda">Ayuda</h1>
+                    <p>Qué significa cada cosa que ves en el panel y qué hacer en las situaciones más comunes.</p>
+                </div>
 
                 <div class="panel">
                     <h2 class="panel-title" id="ayuda-equipos">Equipos: los cuatro estados</h2>
