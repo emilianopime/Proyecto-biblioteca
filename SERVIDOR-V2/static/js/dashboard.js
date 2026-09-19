@@ -372,12 +372,15 @@ document.getElementById('contenido').addEventListener('scroll', () => {
     const titulos = [...document.querySelectorAll('#view-ayuda .panel-title[id]')];
     const alFinal = contenido.scrollTop + contenido.clientHeight >= contenido.scrollHeight - 2;
     if (alFinal) { marcarSeccionAyuda(titulos[titulos.length - 1].id); return; }
-    const tope = contenido.getBoundingClientRect().top + 60;
+    // Se marca el panel que cruza la linea de lectura, a un tercio de la altura visible.
+    const area = contenido.getBoundingClientRect();
+    const lineaLectura = area.top + area.height / 3;
     let actual = titulos[0].id;
     for (const h of titulos) {
-        if (h.getBoundingClientRect().top <= tope) actual = h.id;
+        const panel = h.closest('.panel').getBoundingClientRect();
+        if (panel.top <= lineaLectura) actual = h.id;
     }
-    if (actual) marcarSeccionAyuda(actual);
+    marcarSeccionAyuda(actual);
 }, { passive: true });
 
 /* ── Padron ─────────────────────────────────────────── */

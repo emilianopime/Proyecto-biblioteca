@@ -1046,3 +1046,20 @@ def test_en_movil_el_indice_de_ayuda_va_arriba_del_contenido(navegador, servidor
     page.evaluate("setView('ayuda')")
     page.wait_for_selector("#view-ayuda", state="visible")
     assert page.locator("#ayuda-indice").bounding_box()["y"] < page.locator("#view-ayuda .panel").first.bounding_box()["y"]
+
+
+def test_el_indice_marca_el_panel_que_ocupa_la_zona_de_lectura(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("setView('ayuda')")
+    page.wait_for_selector("#view-ayuda", state="visible")
+
+    # Dejar el panel de Padron a media pantalla, con el final de Equipos todavia visible arriba.
+    page.evaluate("""() => {
+        const c = document.getElementById('contenido');
+        const padron = document.getElementById('ayuda-padron').closest('.panel');
+        c.scrollTop = padron.offsetTop - c.clientHeight * 0.45;
+    }""")
+    page.wait_for_timeout(400)
+
+    activo = page.locator("#ayuda-indice a[aria-current='true']").get_attribute("href")
+    assert activo == "#ayuda-padron", activo
