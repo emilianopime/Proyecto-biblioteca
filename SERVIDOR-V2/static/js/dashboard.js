@@ -84,7 +84,7 @@ function cuerpoTarjeta(pc, estado) {
     if (estado === 'en-uso') {
         return `<span class="status-icon">${ICONS.user}</span>
             <div class="card-user">
-                <span class="card-user-name">${escapar(info.current_user)}</span>
+                <span class="card-user-name" title="${escapar(info.current_user)}">${escapar(info.current_user)}</span>
                 <span class="card-user-meta">Matrícula ${escapar(info.cardnumber || 'sin registrar')}</span>
             </div>`;
     }
@@ -104,7 +104,7 @@ function htmlTarjeta(pc, estado) {
     const et = ESTADOS[estado].etiqueta;
     return `
         <div class="card-header">
-            <h3 class="card-name">${escapar(pc.name)}</h3>
+            <h3 class="card-name" title="${escapar(pc.name)}">${escapar(pc.name)}</h3>
             <span class="status-badge ${estado}"><span class="status-dot" aria-hidden="true"></span>${et}</span>
         </div>
         <div class="card-body">${cuerpoTarjeta(pc, estado)}</div>
@@ -112,38 +112,47 @@ function htmlTarjeta(pc, estado) {
             <summary>Detalles del equipo</summary>
             <div class="card-meta"><span>Dirección en la red</span><strong>${escapar(pc.ip)}</strong></div>
             <div class="card-meta"><span>Última señal</span><strong>${escapar(cuandoDe(pc.last_heartbeat).replace(/^las /, ''))}</strong></div>
-            ${info_cpu(pc)}
-            <button type="button" class="btn-link" onclick="deleteComputer('${escapar(pc.id)}', '${escapar(pc.name)}')">Quitar del monitor</button>
+            <button type="button" class="btn-link" onclick="deleteComputer('${escapar(pc.id)}', '${escapar(pc.name)}')">Quitar de esta lista</button>
         </details>`;
-}
-
-function info_cpu(pc) {
-    const cpu = pc.info && pc.info.cpu_percent;
-    return cpu ? `<div class="card-meta"><span>Uso de CPU</span><strong>${escapar(cpu)}%</strong></div>` : '';
 }
 
 let ultimaActualizacion = null;
 let servidorCaidoDesde = null;
 let filtroEstado = null;
+let filtroTexto = '';
+
+function normalizar(texto) {
+    return String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 
 function aplicarFiltroEstado() {
     const info = document.getElementById('filtro-estado-info');
+    const q = normalizar(filtroTexto.trim());
     for (const el of document.querySelectorAll('.computer-card')) {
-        el.hidden = Boolean(filtroEstado) && !el.classList.contains(filtroEstado);
+        const porEstado = Boolean(filtroEstado) && !el.classList.contains(filtroEstado);
+        const porTexto = q && !normalizar(el.dataset.busqueda).includes(q);
+        el.hidden = porEstado || porTexto;
     }
-    for (const b of document.querySelectorAll('button.qs-card')) {
-        b.setAttribute('aria-pressed', String(b.dataset.estado === filtroEstado));
+    for (const b of document.querySelectorAll('button.qs-card, #unknown-computers')) {
+        const activo = b.dataset.estado === filtroEstado;
+        b.setAttribute('aria-pressed', String(activo));
+        const pista = b.querySelector('.qs-hint');
+        if (pista) pista.textContent = activo ? 'Pulsa para ver todos' : 'Pulsa para filtrar';
     }
-    const nombres = { 'libre': 'solo libres', 'en-uso': 'solo en uso', 'sin-conexion': 'solo sin conexión' };
-    info.textContent = filtroEstado ? `· ${nombres[filtroEstado]}` : '';
+    const nombres = { 'libre': 'solo libres', 'en-uso': 'solo en uso', 'sin-conexion': 'solo sin conexión', 'desconocido': 'solo sin información' };
+    const partes = [];
+    if (filtroEstado) partes.push(nombres[filtroEstado]);
+    if (q) partes.push(`que coinciden con "${filtroTexto.trim()}"`);
+    info.textContent = partes.length ? `· ${partes.join(', ')}` : '';
 }
 
-for (const b of document.querySelectorAll('button.qs-card')) {
+for (const b of document.querySelectorAll('button.qs-card, #unknown-computers')) {
     b.onclick = () => {
         filtroEstado = filtroEstado === b.dataset.estado ? null : b.dataset.estado;
         aplicarFiltroEstado();
     };
 }
+document.getElementById('equipos-q').oninput = (e) => { filtroTexto = e.target.value; aplicarFiltroEstado(); };
 
 function hace(ms) {
     const s = Math.round(ms / 1000);
@@ -197,10 +206,12 @@ function pintarEquipos(lista) {
         vistos.add(pc.id);
         const html = htmlTarjeta(pc, estado);
         let el = existentes.get(pc.id);
+        const busqueda = `${pc.name} ${(pc.info && pc.info.current_user) || ''} ${(pc.info && pc.info.cardnumber) || ''}`;
         if (!el) {
             el = document.createElement('article');
             el.className = `computer-card ${estado}`;
             el.dataset.id = pc.id;
+            el.dataset.busqueda = busqueda;
             el.dataset.firma = html;
             el.innerHTML = html;
             contenedor.appendChild(el);
@@ -213,6 +224,7 @@ function pintarEquipos(lista) {
             if (abierto) el.querySelector('details').open = true;
         }
         el.dataset.firma = html;
+        el.dataset.busqueda = busqueda;
     }
     for (const [id, el] of existentes) if (!vistos.has(id)) el.remove();
 
@@ -236,8 +248,10 @@ async function loadComputers() {
         document.getElementById('sin-conexion-computers').textContent = conteo['sin-conexion'];
         document.getElementById('total-computers').textContent        = lista.length;
 
-        document.getElementById('unknown-computers').textContent =
-            conteo['desconocido'] ? ` · ${conteo['desconocido']} sin información` : '';
+        const sinInfo = document.getElementById('unknown-computers');
+        sinInfo.hidden = !conteo['desconocido'];
+        sinInfo.textContent = conteo['desconocido'] ? `· ${conteo['desconocido']} sin información` : '';
+        if (!conteo['desconocido'] && filtroEstado === 'desconocido') filtroEstado = null;
 
         pintarEquipos(lista);
         ultimaActualizacion = Date.now();
@@ -267,12 +281,18 @@ document.getElementById('quitar-confirmar').onclick = async () => {
     const { id, nombre } = equipoAQuitar || {};
     dialogoQuitar.close();
     if (!id) return;
+    const status = document.getElementById('equipos-status');
     try {
         await leerJson(await fetch(`/api/computer/${encodeURIComponent(id)}`, { method: 'DELETE' }));
+        status.className = 'equipos-status exito';
+        status.textContent = `${nombre} ya no aparece en la lista. Si vuelve a mandar señal, reaparece sola.`;
     } catch (e) {
         if (e.message === 'Sesión expirada') return;
-        document.getElementById('refresh-info').textContent = `no se pudo quitar ${nombre}: ${e.message}`;
+        status.className = 'equipos-status error';
+        status.textContent = `No se pudo quitar ${nombre}: ${e.message}`;
     }
+    clearTimeout(status._timer);
+    status._timer = setTimeout(() => { status.textContent = ''; }, 8000);
     loadComputers();
 };
 
@@ -282,18 +302,16 @@ setInterval(() => {
 }, 1000);
 loadComputers();
 
-/* ── Tema claro u oscuro ────────────────────────────── */
-function alternarTema() {
-    const raiz = document.documentElement;
-    const claroAhora = raiz.dataset.theme === 'light'
-        || (!raiz.dataset.theme && matchMedia('(prefers-color-scheme: light)').matches);
-    raiz.dataset.theme = claroAhora ? 'dark' : 'light';
-    try { localStorage.setItem('tema', raiz.dataset.theme); } catch (e) { /* sin almacenamiento */ }
-}
-
 /* ── Sidebar y vistas ───────────────────────────────── */
+const esMovil = () => matchMedia('(max-width: 640px)').matches;
+
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
+    if (esMovil()) {
+        const abierto = sidebar.classList.toggle('expanded');
+        document.querySelector('.btn-toggle').setAttribute('aria-expanded', String(abierto));
+        return;
+    }
     const colapsado = sidebar.classList.toggle('collapsed');
     document.querySelector('.btn-toggle').setAttribute('aria-expanded', String(!colapsado));
     try { localStorage.setItem('sidebar-colapsado', colapsado ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
@@ -305,6 +323,8 @@ try {
 let statsInterval = null;
 
 function setView(nombre) {
+    document.getElementById('sidebar').classList.remove('expanded');
+    document.querySelector('.btn-toggle').setAttribute('aria-expanded', String(!document.getElementById('sidebar').classList.contains('collapsed') && !esMovil()));
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(b => b.removeAttribute('aria-current'));
     document.getElementById('view-' + nombre).classList.add('active');
@@ -543,7 +563,8 @@ function tablaEventos(filas) {
         <td>${badgeEvento(r.evento)}</td>
     </tr>`).join('');
     return `<div class="table-wrap"><table class="st-table">
-        <thead><tr><th>Equipo</th><th>Matrícula</th><th>Alumno</th><th>Carrera</th><th>Fecha y hora</th><th>Evento</th></tr></thead>
+        <caption class="visually-hidden">Entradas y salidas de alumnos en los equipos</caption>
+        <thead><tr><th scope="col">Equipo</th><th scope="col">Matrícula</th><th scope="col">Alumno</th><th scope="col">Carrera</th><th scope="col">Fecha y hora</th><th scope="col">Evento</th></tr></thead>
         <tbody>${cuerpo}</tbody></table></div>`;
 }
 
@@ -571,6 +592,8 @@ async function loadStats() {
                                    ['st-logins-mes', d.logins_mes], ['st-logins-semestre', d.logins_semestre]]) {
             document.getElementById(id).textContent = formatearNumero(valor);
         }
+        const hoy = new Date();
+        document.getElementById('semestre-desde').textContent = hoy.getMonth() >= 7 ? '· desde el 1 de agosto' : '· desde el 1 de enero';
         pintarLista('st-recientes', d.recientes, 'Todavía no hay entradas registradas.', tablaEventos);
         pintarLista('st-top-pcs', d.top_pcs, 'Todavía no hay uso registrado.', it => barras(it, 'pc', ''));
         pintarLista('st-dist-carreras', d.dist_carreras, 'No hay padrón cargado.', it => barras(it, 'carrera', 'padron'));
@@ -619,6 +642,15 @@ function actualizarReporte() {
     }
 }
 
+for (const [id, tipo] of [['reporte-pdf', 'el PDF'], ['reporte-xlsx', 'el Excel']]) {
+    document.getElementById(id).addEventListener('click', (e) => {
+        if (e.currentTarget.getAttribute('aria-disabled') === 'true') { e.preventDefault(); return; }
+        const status = document.getElementById('reporte-status');
+        status.textContent = `Preparando ${tipo}... se descargará solo en unos segundos.`;
+        clearTimeout(status._timer);
+        status._timer = setTimeout(() => { status.textContent = ''; }, 6000);
+    });
+}
 reportePeriodo.onchange = actualizarReporte;
 document.getElementById('reporte-desde').onchange = actualizarReporte;
 document.getElementById('reporte-hasta').onchange = actualizarReporte;
@@ -671,6 +703,12 @@ async function loadLogs(pagina) {
     const paginacion = document.getElementById('logs-pagination');
     const filtros = filtrosBitacora();
     document.getElementById('logs-clear').hidden = !filtros.activos;
+    const aviso = document.getElementById('logs-aviso');
+    if (filtros.valores.desde && filtros.valores.hasta && filtros.valores.desde > filtros.valores.hasta) {
+        aviso.textContent = 'La fecha inicial no puede ser posterior a la final.';
+        return;
+    }
+    aviso.textContent = '';
     filtros.params.set('page', pagina);
     try {
         const d = await leerJson(await fetch('/api/logs?' + filtros.params));

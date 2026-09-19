@@ -8,10 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script>
-        // Aplica el tema guardado antes de pintar, para no parpadear.
-        try { var t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-    </script>
+    <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
@@ -34,8 +31,8 @@
             </div>
         </div>
         <div class="topbar-right">
-            <div class="user-chip"><span class="online-dot" aria-hidden="true"></span><span class="user-chip-label">Sesión:</span> <strong>{{ username }}</strong></div>
-            <button type="button" class="btn-theme" id="theme-toggle" onclick="alternarTema()" aria-label="Cambiar entre tema oscuro y claro" title="Tema oscuro o claro">
+            <div class="user-chip"><span class="user-chip-label">Sesión:</span> <strong>{{ username }}</strong></div>
+            <button type="button" class="btn-theme" id="theme-toggle" onclick="alternarTema()" aria-label="Cambiar a tema claro">
                 <svg class="icono-luna" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 <svg class="icono-sol" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
             </button>
@@ -104,28 +101,34 @@
                     <p>Qué máquinas están libres, cuáles tiene un alumno y cuáles no responden. Se actualiza solo. <a class="ayuda-enlace" href="#ayuda-equipos" onclick="irAyuda('ayuda-equipos'); return false;">¿Qué significa cada estado?</a></p>
                 </div>
 
-                <div class="quick-stats" aria-label="Resumen de equipos. Pulsa uno para ver solo esos equipos">
-                    <button type="button" class="qs-card libre" data-estado="libre" aria-pressed="false">
+                <span id="qs-desc" hidden>Pulsa para ver solo estos equipos; vuelve a pulsar para ver todos.</span>
+                <div class="quick-stats" aria-label="Resumen de equipos">
+                    <button type="button" class="qs-card libre" data-estado="libre" aria-pressed="false" aria-describedby="qs-desc">
                         <span class="qs-label">Libres</span>
                         <span class="qs-value" id="libres-computers">–</span>
-                        <span class="qs-hint">Pulsa para filtrar</span>
+                        <span class="qs-hint" aria-hidden="true">Pulsa para filtrar</span>
                     </button>
-                    <button type="button" class="qs-card en-uso" data-estado="en-uso" aria-pressed="false">
+                    <button type="button" class="qs-card en-uso" data-estado="en-uso" aria-pressed="false" aria-describedby="qs-desc">
                         <span class="qs-label">En uso</span>
                         <span class="qs-value" id="en-uso-computers">–</span>
-                        <span class="qs-hint">Pulsa para filtrar</span>
+                        <span class="qs-hint" aria-hidden="true">Pulsa para filtrar</span>
                     </button>
-                    <button type="button" class="qs-card sin-conexion" data-estado="sin-conexion" aria-pressed="false">
+                    <button type="button" class="qs-card sin-conexion" data-estado="sin-conexion" aria-pressed="false" aria-describedby="qs-desc">
                         <span class="qs-label">Sin conexión</span>
                         <span class="qs-value" id="sin-conexion-computers">–</span>
-                        <span class="qs-hint">Pulsa para filtrar</span>
+                        <span class="qs-hint" aria-hidden="true">Pulsa para filtrar</span>
                     </button>
                 </div>
 
                 <div class="section-head">
                     <h2>Equipos <span class="filtro-estado-info" id="filtro-estado-info" role="status"></span></h2>
-                    <span class="section-meta"><span id="total-computers">–</span> registrados<span id="unknown-computers"></span> · <span id="refresh-info">cargando</span></span>
+                    <label class="campo campo-buscar-equipo">
+                        <span class="visually-hidden">Buscar equipo o alumno</span>
+                        <input type="search" id="equipos-q" placeholder="Buscar equipo o alumno" autocomplete="off">
+                    </label>
+                    <span class="section-meta"><span id="total-computers">–</span> registrados <button type="button" class="btn-link-inline" id="unknown-computers" data-estado="desconocido" aria-pressed="false" hidden></button> · <span id="refresh-info">cargando</span></span>
                 </div>
+                <p class="equipos-status" id="equipos-status" role="status" aria-live="polite"></p>
                 <div class="server-warning" id="server-warning" role="alert" hidden>
                     <strong>Sin conexión con el servidor.</strong> Los estados que ves pueden no ser actuales. Se sigue intentando cada 5 segundos.
                 </div>
@@ -171,6 +174,7 @@
 
                     <div id="upload-confirm" class="confirm-box" tabindex="-1" hidden>
                         <p id="upload-confirm-text"></p>
+                        <p class="help-text" id="upload-confirm-nota">El padrón actual se conserva y podrás restaurarlo si te equivocaste de archivo.</p>
                         <div class="confirm-actions">
                             <button type="button" class="btn-primary" id="upload-confirm-btn">Reemplazar padrón</button>
                             <button type="button" class="btn-secondary" id="upload-cancel">Cancelar</button>
@@ -204,7 +208,7 @@
                     <ol class="ayuda-pasos">
                         <li>Revisa que esté encendida y que el cable de red esté conectado.</li>
                         <li>Revisa que el programa del kiosko esté abierto. Si no, ábrelo; la máquina vuelve a aparecer sola en unos segundos.</li>
-                        <li>Si la máquina ya no está en el laboratorio, abre <em>Detalles del equipo</em> en su tarjeta y elige <em>Quitar del monitor</em>. Solo desaparece de la lista; si algún día vuelve a encenderse, reaparece.</li>
+                        <li>Si la máquina ya no está en el laboratorio, abre <em>Detalles del equipo</em> en su tarjeta y elige <em>Quitar de esta lista</em>. Solo desaparece de la lista; si algún día vuelve a encenderse, reaparece.</li>
                     </ol>
                     <h3>La franja "Sin conexión con el servidor"</h3>
                     <p>Aparece cuando este panel no logra hablar con el servidor. Los estados que ves pueden estar viejos. Se reintenta solo cada 5 segundos; si dura más de un minuto, avisa a quien administra el servidor.</p>
@@ -247,10 +251,10 @@
 
             <dialog id="dialogo-quitar" class="dialogo" aria-labelledby="quitar-titulo">
                 <form method="dialog">
-                    <h2 id="quitar-titulo">¿Quitar <span id="quitar-nombre"></span> del monitor?</h2>
-                    <p>Solo desaparece de esta lista. Si la máquina sigue encendida, volverá a aparecer sola en cuanto mande señal.</p>
+                    <h2 id="quitar-titulo">¿Quitar <span id="quitar-nombre"></span> de esta lista?</h2>
+                    <p>Solo desaparece de la lista. Si la máquina sigue encendida, volverá a aparecer sola en cuanto mande señal.</p>
                     <div class="confirm-actions">
-                        <button type="button" class="btn-primary" id="quitar-confirmar">Quitar del monitor</button>
+                        <button type="button" class="btn-primary" id="quitar-confirmar">Quitar de esta lista</button>
                         <button type="button" class="btn-secondary" id="quitar-cancelar" autofocus>Cancelar</button>
                     </div>
                 </form>
@@ -277,7 +281,7 @@
                         <div class="sm-value" id="st-logins-mes">–</div>
                     </div>
                     <div class="sm-card">
-                        <div class="sm-label">Este semestre</div>
+                        <div class="sm-label">Este semestre <span class="sm-sub" id="semestre-desde"></span></div>
                         <div class="sm-value" id="st-logins-semestre">–</div>
                     </div>
                 </div>
@@ -300,11 +304,12 @@
                             <label class="campo"><span>Hasta</span><input type="date" id="reporte-hasta"></label>
                         </div>
                         <div class="reporte-acciones">
-                            <a class="btn-primary" id="reporte-ver" href="/reporte?periodo=mes" target="_blank" rel="noopener" aria-disabled="false">Ver reporte</a>
-                            <a class="btn-secondary" id="reporte-pdf" href="/reporte.pdf?periodo=mes" aria-disabled="false">Descargar PDF</a>
-                            <a class="btn-secondary" id="reporte-xlsx" href="/reporte.xlsx?periodo=mes" aria-disabled="false">Descargar Excel</a>
+                            <a class="btn-primary" id="reporte-ver" href="/reporte?periodo=mes" target="_blank" rel="noopener" aria-disabled="false">Ver reporte <span class="abre-pestana">(se abre en otra pestaña)</span></a>
+                            <a class="btn-secondary" id="reporte-pdf" href="/reporte.pdf?periodo=mes" download aria-disabled="false">Descargar PDF</a>
+                            <a class="btn-secondary" id="reporte-xlsx" href="/reporte.xlsx?periodo=mes" download aria-disabled="false">Descargar Excel</a>
                         </div>
                         <p class="reporte-aviso" id="reporte-aviso" role="status" aria-live="polite"></p>
+                        <p class="reporte-status" id="reporte-status" role="status" aria-live="polite"></p>
                     </form>
                 </div>
 
@@ -337,7 +342,7 @@
                         <p>Cada entrada y salida de los alumnos en los equipos, de la más reciente a la más antigua. <a class="ayuda-enlace" href="#ayuda-bitacora" onclick="irAyuda('ayuda-bitacora'); return false;">¿Cómo busco a alguien?</a></p>
                     </div>
                     <div class="export-block">
-                        <a class="btn-secondary" id="logs-export" href="/api/logs/export" aria-describedby="logs-export-info">
+                        <a class="btn-secondary" id="logs-export" href="/api/logs/export" download aria-describedby="logs-export-info">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                             Descargar bitácora completa
                         </a>
@@ -362,6 +367,7 @@
                         <label class="campo"><span>Desde</span><input type="date" id="logs-desde"></label>
                         <label class="campo"><span>Hasta</span><input type="date" id="logs-hasta"></label>
                         <button type="button" class="btn-secondary" id="logs-clear" hidden>Limpiar filtros</button>
+                        <p class="reporte-aviso" id="logs-aviso" role="status" aria-live="polite"></p>
                     </form>
                     <div id="logs-container"><div class="empty-msg">Cargando...</div></div>
                     <div class="pagination" id="logs-pagination"></div>

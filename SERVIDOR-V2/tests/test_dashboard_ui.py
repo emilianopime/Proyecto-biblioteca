@@ -83,6 +83,17 @@ def navegador():
         b.close()
 
 
+@pytest.fixture(autouse=True)
+def cerrar_contextos(navegador):
+    """Cada prueba abre contextos; cerrarlos evita que cientos de pestanas sigan consultando al servidor."""
+    yield
+    for ctx in list(navegador.contexts):
+        try:
+            ctx.close()
+        except Exception:
+            pass
+
+
 def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_sesion=True, upload=None, padron=PADRON, esquema="dark"):
     """Abre el dashboard con respuestas de API simuladas y devuelve (page, peticiones)."""
     ctx = navegador.new_context(viewport={"width": ancho, "height": alto}, locale="es-MX", color_scheme=esquema)
@@ -100,6 +111,8 @@ def abrir(navegador, servidor, equipos=SEIS_EQUIPOS, ancho=1440, alto=900, con_s
                       "online": sum(1 for c in lista if c["status"] == "online"),
                       "offline": sum(1 for c in lista if c["status"] == "offline")}
             return route.fulfill(json=cuerpo)
+        if "/api/computer/" in url and route.request.method == "DELETE":
+            return route.fulfill(json={"message": "Equipo eliminado"})
         if "/api/padron/restaurar" in url:
             nuevo_estado = {**padron["anterior"], "anterior": {k: padron[k] for k in ("total", "cargado_en", "archivo")}}
             return route.fulfill(json=nuevo_estado)
@@ -788,7 +801,7 @@ def test_hay_una_vista_de_ayuda_que_explica_estados_y_padron(navegador, servidor
     page.wait_for_selector("#view-ayuda", state="visible")
 
     texto = page.locator("#view-ayuda").inner_text().lower()
-    for frase in ("libre", "en uso", "sin conexión", "sin información", "padrón", "csv", "quitar del monitor", "restaurar"):
+    for frase in ("libre", "en uso", "sin conexión", "sin información", "padrón", "csv", "quitar de esta lista", "restaurar"):
         assert frase in texto, frase
     assert page.locator("#view-ayuda h2").count() >= 4
 
@@ -888,3 +901,126 @@ def test_el_dialogo_de_quitar_aparece_centrado(navegador, servidor):
     assert abs(centro_x - 720) < 40, caja
     assert abs(centro_y - 450) < 60, caja
     page.click("#quitar-cancelar")
+
+
+# ---------------------------------------------------------------------------
+# Tercera critica
+# ---------------------------------------------------------------------------
+
+def test_bitacora_no_consulta_con_rango_invertido_y_lo_avisa(navegador, servidor):
+    page, peticiones = abrir(navegador, servidor)
+    ir_a_bitacora(page)
+    antes = len([r for _, r in peticiones if "/api/logs?" in r])
+
+    page.fill("#logs-desde", "2026-09-10")
+    page.fill("#logs-hasta", "2026-09-01")
+    page.dispatch_event("#logs-hasta", "change")
+    page.wait_for_timeout(500)
+
+    assert len([r for _, r in peticiones if "/api/logs?" in r]) == antes + 1  # solo la del cambio de 'desde'
+    assert "posterior" in page.locator("#logs-aviso").inner_text()
+    assert "ningún registro" not in page.locator("#logs-container").inner_text().lower()
+
+
+def test_quitar_un_equipo_confirma_en_pantalla(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("document.querySelector('.computer-card[data-id=\\'LAB-PC-02\\'] details').open = true")
+    page.click(".computer-card[data-id='LAB-PC-02'] .btn-link")
+    page.click("#quitar-confirmar")
+    page.wait_for_timeout(300)
+
+    assert "LAB-PC-02" in page.locator("#equipos-status").inner_text()
+    assert "lista" in page.locator("#equipos-status").inner_text()
+
+
+def test_descargar_pdf_avisa_que_se_esta_preparando(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.evaluate("setView('stats')")
+    page.wait_for_selector("#reporte-form")
+    page.route("**/reporte.pdf*", lambda r: r.fulfill(status=200, content_type="application/pdf", body=b"%PDF-1.4"))
+
+    page.click("#reporte-pdf")
+    page.wait_for_timeout(200)
+
+    assert "preparando" in page.locator("#reporte-status").inner_text().lower()
+    assert "otra pestaña" in page.locator("#reporte-ver").inner_text().lower() or page.locator("#reporte-ver + .abre-pestana, #reporte-ver .abre-pestana").count() == 1
+
+
+def test_la_pista_del_contador_cambia_al_filtrar_y_no_se_lee_tres_veces(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    pistas = page.locator(".qs-hint")
+    assert pistas.evaluate_all("els => els.every(e => e.getAttribute('aria-hidden') === 'true')")
+    assert page.locator("button.qs-card").first.get_attribute("aria-describedby")
+
+    page.click("button.qs-card.libre")
+    assert "ver todos" in page.locator("button.qs-card.libre .qs-hint").inner_text().lower()
+
+
+def test_sin_informacion_tambien_se_puede_filtrar(navegador, servidor):
+    equipos = SEIS_EQUIPOS + [pc("LAB-PC-07", locked=False, usuario=None)]
+    page, _ = abrir(navegador, servidor, equipos=equipos)
+
+    page.click("#unknown-computers")
+    visibles = page.locator(".computer-card:visible").evaluate_all("els => els.map(e => e.dataset.id)")
+    assert visibles == ["LAB-PC-07"]
+
+
+def test_buscar_un_equipo_por_nombre_o_alumno(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+
+    page.fill("#equipos-q", "torres")
+    page.wait_for_timeout(200)
+    assert page.locator(".computer-card:visible").evaluate_all("els => els.map(e => e.dataset.id)") == ["LAB-PC-01"]
+
+    page.fill("#equipos-q", "pc-0")
+    page.wait_for_timeout(200)
+    assert page.locator(".computer-card:visible").count() == 6
+
+    page.evaluate("loadComputers()")
+    page.wait_for_timeout(300)
+    assert page.locator(".computer-card:visible").count() == 6
+    assert page.locator(".card-name").first.get_attribute("title")
+
+
+def test_el_boton_de_tema_dice_a_que_tema_cambia(navegador, servidor):
+    page, _ = abrir(navegador, servidor, esquema="dark")
+    boton = page.locator("#theme-toggle")
+    assert "claro" in boton.get_attribute("aria-label").lower()
+    boton.click()
+    assert "oscuro" in boton.get_attribute("aria-label").lower()
+    page.evaluate("localStorage.clear()")
+
+
+def test_en_movil_el_boton_de_menu_despliega_el_menu(navegador, servidor):
+    page, _ = abrir(navegador, servidor, ancho=400, alto=850)
+    assert page.locator("#sidebar").bounding_box()["width"] < 60
+
+    page.click(".btn-toggle")
+    page.wait_for_timeout(300)
+    assert page.locator("#sidebar").bounding_box()["width"] > 180
+    assert page.locator("#nav-padron .nav-label").is_visible()
+
+    page.click("#nav-padron")
+    page.wait_for_timeout(300)
+    assert page.locator("#sidebar").bounding_box()["width"] < 60   # se vuelve a plegar al elegir
+
+
+def test_las_tablas_tienen_encabezados_de_columna_accesibles(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    ir_a_bitacora(page)
+    assert page.locator(".st-table th").evaluate_all("els => els.every(e => e.getAttribute('scope') === 'col')")
+    assert page.locator(".st-table caption").count() == 1
+
+
+def test_la_confirmacion_del_padron_dice_que_se_puede_restaurar(navegador, servidor):
+    page, _ = abrir(navegador, servidor, padron=PADRON_SIN_ANTERIOR)
+    ir_a_padron(page)
+    elegir_archivo(page)
+    assert "restaurar" in page.locator("#upload-confirm").inner_text().lower()
+
+
+def test_no_hay_jerga_tecnica_en_las_tarjetas_ni_en_el_dialogo(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    assert "quitar de esta lista" in page.locator(".computer-card .btn-link").first.text_content().lower()
+    assert page.locator(".user-chip .online-dot").count() == 0
+    assert "cpu" not in page.locator("#computers-container").inner_text().lower()

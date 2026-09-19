@@ -45,25 +45,25 @@ body.pdf .hoja { box-shadow: none; margin: 0; padding: 0; max-width: none; }
     border-bottom: 2px solid var(--tinta); padding-bottom: 10px; margin-bottom: 18px;
 }
 .institucion { font-size: 9.5pt; color: var(--tinta-2); letter-spacing: .02em; }
-h1 { font-size: 20pt; font-weight: 600; line-height: 1.2; margin-top: 2px; }
+h1 { font-size: 20pt; font-weight: 600; line-height: 1.3; margin-top: 2px; }
 .periodo { font-size: 13pt; color: var(--acento); font-weight: 600; margin-top: 2px; }
 .generado { font-size: 9.5pt; color: var(--tinta-2); white-space: nowrap; }
 
 .cifras { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
 .cifra { border: 1px solid var(--linea); border-radius: 4px; padding: 10px 12px; }
-.cifra .valor { display: block; font-size: 22pt; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cifra .valor { display: block; font-size: 22pt; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }
 .cifra .rotulo { display: block; font-size: 9pt; color: var(--tinta-2); margin-top: 2px; }
 
 section { margin-bottom: 20px; break-inside: avoid; }
 h2 { font-size: 12.5pt; font-weight: 600; margin-bottom: 6px; }
-.nota { font-size: 9.5pt; color: var(--tinta-2); margin-bottom: 8px; }
+.nota { font-size: 9.5pt; color: var(--tinta-2); margin-bottom: 8px; max-width: 80ch; }
 .vacio { padding: 24px; text-align: center; color: var(--tinta-2); border: 1px dashed var(--linea); border-radius: 4px; }
-.error { color: #b3261e; margin: 8px 0; }
+.error { color: #b3261e; margin: 8px 0; font-size: 12pt; }
 
 .horas { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; height: 110px; align-items: end; border-bottom: 1px solid var(--linea); padding-bottom: 16px; position: relative; }
 .hora { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
 .barra-v { background: var(--acento); border-radius: 2px 2px 0 0; min-height: 1px; }
-.eje { position: absolute; bottom: -16px; left: 0; font-size: 8pt; color: var(--tinta-2); }
+.eje { position: absolute; bottom: -16px; left: 0; font-size: 9pt; color: var(--tinta-2); white-space: nowrap; }
 
 .dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 

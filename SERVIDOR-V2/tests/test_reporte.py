@@ -158,3 +158,19 @@ def test_la_tarjeta_este_semestre_usa_el_semestre_calendario(datos):
     # hoy es 2026-09-18 en el entorno de pruebas; el semestre empieza el 1 de agosto,
     # asi que el LOGIN del 20 de agosto cuenta y no hay nada anterior.
     assert d["logins_semestre"] == 5
+
+
+@con_db
+def test_la_pagina_del_reporte_usa_la_misma_fuente_y_habla_del_panel(datos):
+    html = datos.get("/reporte?periodo=mes").get_data(as_text=True)
+    assert "IBM+Plex+Sans" in html
+    assert "Volver al panel" in html and "dashboard" not in html.lower().split("<body")[1]
+
+
+@con_db
+def test_la_pagina_de_error_del_reporte_conserva_la_barra(datos):
+    r = datos.get("/reporte?periodo=rango&desde=2026-09-10&hasta=2026-09-01")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 400
+    assert 'class="barra' in html and 'class="hoja' in html
+    assert "posterior" in html

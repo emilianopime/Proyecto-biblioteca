@@ -5,20 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte de uso del laboratorio{% if r %} — {{ r.periodo.etiqueta }}{% endif %}</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reporte.css') }}">
 </head>
 <body class="{% if para_pdf %}pdf{% endif %}">
 
 {% if error %}
+    <nav class="barra no-print" aria-label="Acciones del reporte">
+        <a class="volver" href="/">&larr; Volver al panel</a>
+    </nav>
     <main class="hoja">
-        <h1>No se pudo generar el reporte</h1>
+        <header class="encabezado">
+            <div>
+                <p class="institucion">Universidad Autónoma de Chihuahua · Laboratorio de la biblioteca</p>
+                <h1>No se pudo generar el reporte</h1>
+            </div>
+        </header>
         <p class="error">{{ error }}</p>
-        <p><a href="/">Volver al dashboard</a></p>
+        <p class="nota">Vuelve al panel, corrige el periodo en <em>Generar reporte</em> y vuelve a intentar.</p>
     </main>
 {% else %}
     {% if not para_pdf %}
     <nav class="barra no-print" aria-label="Acciones del reporte">
-        <a class="volver" href="/">&larr; Volver al dashboard</a>
+        <a class="volver" href="/">&larr; Volver al panel</a>
         <div class="acciones">
             <button type="button" onclick="window.print()">Imprimir o guardar como PDF</button>
             <a class="btn" href="/reporte.pdf?{{ args|urlencode }}">Descargar PDF</a>
@@ -58,7 +69,7 @@
                 {% for n in r.horas %}
                 <div class="hora" title="{{ '%02d:00'|format(loop.index0) }}: {{ n }} entradas">
                     <div class="barra-v" style="height: {{ (n / max_hora * 100)|round(1) }}%"></div>
-                    <span class="eje">{% if loop.index0 % 3 == 0 %}{{ loop.index0 }}{% endif %}</span>
+                    <span class="eje">{% if loop.index0 % 3 == 0 %}{{ loop.index0 }} h{% endif %}</span>
                 </div>
                 {% endfor %}
             </div>
