@@ -423,7 +423,6 @@ body::before {
 .ayuda-indice a[aria-current="true"]::before {
     content: ''; position: absolute; left: -15px; top: 6px; bottom: 6px; width: 2px; background: var(--accent); border-radius: 2px;
 }
-.ayuda .panel { max-width: none; }
 .ayuda p, .ayuda dd, .ayuda li { max-width: 66ch; }
 @media (max-width: 960px) {
     .ayuda-layout { grid-template-columns: minmax(0, 1fr); }
