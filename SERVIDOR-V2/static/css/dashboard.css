@@ -236,8 +236,17 @@ body::before {
 .qs-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--r); padding: 14px 18px;
+    text-align: left; cursor: pointer; font: inherit; color: inherit;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color .15s, background .15s;
 }
-.qs-label { font-size: var(--fs-xs); font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+.qs-card:hover { border-color: var(--text-3); }
+.qs-card[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.qs-hint { font-size: var(--fs-xs); color: var(--text-3); margin-top: 2px; }
+.qs-card[aria-pressed="true"] .qs-hint { color: var(--accent); }
+.filtro-estado-info { font-size: var(--fs-sm); font-weight: 400; color: var(--accent); margin-left: 8px; }
+.filtro-estado-info:empty { display: none; }
+.qs-label { font-size: var(--fs-xs); font-weight: 500; color: var(--text-2); }
 .qs-value { font-family: var(--mono); font-size: var(--fs-num); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
 .qs-card.libre        .qs-value { color: var(--success); }
 .qs-card.en-uso       .qs-value { color: var(--accent); }
@@ -316,6 +325,18 @@ body::before {
 
 .empty-msg { grid-column: 1 / -1; color: var(--text-2); font-size: var(--fs-md); text-align: center; padding: 28px 12px; max-width: 60ch; margin: 0 auto; }
 .empty-msg .btn-secondary { margin-top: 12px; }
+
+/* ── Dialogo propio ──────────────────────────────────── */
+.dialogo {
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px 22px; max-width: 420px; width: calc(100% - 32px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+.dialogo::backdrop { background: rgba(4, 14, 28, .7); }
+.dialogo h2 { font-size: var(--fs-lg); font-weight: 600; margin-bottom: 8px; }
+.dialogo p { color: var(--text-2); margin-bottom: 16px; }
+.dialogo .btn-primary { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.dialogo .btn-primary:hover { background: #fda4b3; border-color: #fda4b3; }
 
 /* ── Padron ──────────────────────────────────────────── */
 .padron-count { font-size: var(--fs-md); color: var(--text-2); }

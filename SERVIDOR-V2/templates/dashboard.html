@@ -86,23 +86,26 @@
                     <p>Qué máquinas están libres, cuáles tiene un alumno y cuáles no responden. Se actualiza solo.</p>
                 </div>
 
-                <div class="quick-stats" aria-label="Resumen de equipos">
-                    <div class="qs-card libre">
-                        <div class="qs-label">Libres</div>
-                        <div class="qs-value" id="libres-computers">–</div>
-                    </div>
-                    <div class="qs-card en-uso">
-                        <div class="qs-label">En uso</div>
-                        <div class="qs-value" id="en-uso-computers">–</div>
-                    </div>
-                    <div class="qs-card sin-conexion">
-                        <div class="qs-label">Sin conexión</div>
-                        <div class="qs-value" id="sin-conexion-computers">–</div>
-                    </div>
+                <div class="quick-stats" aria-label="Resumen de equipos. Pulsa uno para ver solo esos equipos">
+                    <button type="button" class="qs-card libre" data-estado="libre" aria-pressed="false">
+                        <span class="qs-label">Libres</span>
+                        <span class="qs-value" id="libres-computers">–</span>
+                        <span class="qs-hint">Pulsa para filtrar</span>
+                    </button>
+                    <button type="button" class="qs-card en-uso" data-estado="en-uso" aria-pressed="false">
+                        <span class="qs-label">En uso</span>
+                        <span class="qs-value" id="en-uso-computers">–</span>
+                        <span class="qs-hint">Pulsa para filtrar</span>
+                    </button>
+                    <button type="button" class="qs-card sin-conexion" data-estado="sin-conexion" aria-pressed="false">
+                        <span class="qs-label">Sin conexión</span>
+                        <span class="qs-value" id="sin-conexion-computers">–</span>
+                        <span class="qs-hint">Pulsa para filtrar</span>
+                    </button>
                 </div>
 
                 <div class="section-head">
-                    <h2>Equipos</h2>
+                    <h2>Equipos <span class="filtro-estado-info" id="filtro-estado-info" role="status"></span></h2>
                     <span class="section-meta"><span id="total-computers">–</span> registrados<span id="unknown-computers"></span> · <span id="refresh-info">cargando</span></span>
                 </div>
                 <div class="server-warning" id="server-warning" role="alert" hidden>
@@ -159,6 +162,17 @@
                     <div id="upload-msg" role="status" aria-live="polite"></div>
                 </div>
             </section>
+
+            <dialog id="dialogo-quitar" class="dialogo" aria-labelledby="quitar-titulo">
+                <form method="dialog">
+                    <h2 id="quitar-titulo">¿Quitar <span id="quitar-nombre"></span> del monitor?</h2>
+                    <p>Solo desaparece de esta lista. Si la máquina sigue encendida, volverá a aparecer sola en cuanto mande señal.</p>
+                    <div class="confirm-actions">
+                        <button type="button" class="btn-primary" id="quitar-confirmar">Quitar del monitor</button>
+                        <button type="button" class="btn-secondary" id="quitar-cancelar" autofocus>Cancelar</button>
+                    </div>
+                </form>
+            </dialog>
 
             <!-- Vista: Estadísticas -->
             <section class="view" id="view-stats" aria-labelledby="titulo-stats">

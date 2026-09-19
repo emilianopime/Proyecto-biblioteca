@@ -687,3 +687,92 @@ def test_sin_resultados_con_filtros_lo_dice_y_ofrece_limpiar(navegador, servidor
     assert "ningún registro" in texto.lower()
     assert "nadie" in texto
     assert page.locator("#logs-export").get_attribute("aria-disabled") == "true"
+
+
+# ---------------------------------------------------------------------------
+# Filtrar equipos por estado desde los contadores
+# ---------------------------------------------------------------------------
+
+def test_los_contadores_filtran_las_tarjetas_por_estado(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+
+    botones = page.locator("button.qs-card")
+    assert botones.count() == 3
+    page.click("button.qs-card.libre")
+
+    visibles = page.locator(".computer-card:visible").evaluate_all("els => els.map(e => e.dataset.id)")
+    assert visibles == ["LAB-PC-02", "LAB-PC-04", "LAB-PC-05"]
+    assert page.locator("button.qs-card.libre").get_attribute("aria-pressed") == "true"
+    assert "libres" in page.locator("#filtro-estado-info").inner_text().lower()
+
+    page.click("button.qs-card.libre")   # volver a pulsar quita el filtro
+    assert page.locator(".computer-card:visible").count() == 6
+    assert page.locator("button.qs-card.libre").get_attribute("aria-pressed") == "false"
+
+
+def test_el_filtro_por_estado_sobrevive_al_refresco(navegador, servidor):
+    page, _ = abrir(navegador, servidor)
+    page.click("button.qs-card.sin-conexion")
+    page.evaluate("loadComputers()")
+    page.wait_for_timeout(300)
+
+    assert page.locator(".computer-card:visible").evaluate_all("els => els.map(e => e.dataset.id)") == ["LAB-PC-06"]
+
+
+# ---------------------------------------------------------------------------
+# Dialogo propio para quitar un equipo y cancelar una carga en curso
+# ---------------------------------------------------------------------------
+
+def test_quitar_equipo_usa_un_dialogo_propio_y_no_el_del_navegador(navegador, servidor):
+    page, peticiones = abrir(navegador, servidor)
+    page.on("dialog", lambda d: pytest.fail("se abrio un dialogo nativo del navegador"))
+    page.evaluate("document.querySelector('.computer-card[data-id=\\'LAB-PC-02\\'] details').open = true")
+
+    page.click(".computer-card[data-id='LAB-PC-02'] .btn-link")
+
+    dialogo = page.locator("dialog#dialogo-quitar")
+    assert dialogo.evaluate("d => d.open")
+    assert "LAB-PC-02" in dialogo.inner_text()
+    assert not any(m == "DELETE" for m, _ in peticiones)
+
+    page.click("#quitar-cancelar")
+    assert not dialogo.evaluate("d => d.open")
+    assert not any(m == "DELETE" for m, _ in peticiones)
+
+    page.click(".computer-card[data-id='LAB-PC-02'] .btn-link")
+    page.click("#quitar-confirmar")
+    page.wait_for_timeout(300)
+    assert any(m == "DELETE" and "LAB-PC-02" in ruta for m, ruta in peticiones)
+
+
+def test_se_puede_cancelar_una_carga_en_curso(navegador, servidor):
+    ctx = navegador.new_context(viewport={"width": 1440, "height": 900})
+    ctx.add_cookies([{"name": "session", "value": servidor["cookie"], "domain": "127.0.0.1", "path": "/"}])
+    page = ctx.new_page()
+    pendientes = []
+
+    def responder(route):
+        url = route.request.url
+        if "/api/upload" in url:
+            pendientes.append(route)   # nunca respondemos: la carga se queda en curso
+            return
+        if "/api/computers" in url:
+            return route.fulfill(json={"computers": SEIS_EQUIPOS, "total": 6, "online": 5, "offline": 1})
+        if "/api/padron" in url:
+            return route.fulfill(json=PADRON)
+        return route.continue_()
+
+    page.route("**/api/**", responder)
+    page.goto(servidor["url"] + "/")
+    page.wait_for_selector(".computer-card")
+    ir_a_padron(page)
+    elegir_archivo(page)
+    page.click("#upload-confirm-btn")
+    page.wait_for_selector("#upload-msg.procesando")
+
+    assert page.locator("#upload-abort").is_visible()
+    page.click("#upload-abort")
+    page.wait_for_timeout(300)
+
+    assert "cancel" in page.locator("#upload-msg").inner_text().lower()
+    assert not page.locator("#drop-zone").is_disabled()

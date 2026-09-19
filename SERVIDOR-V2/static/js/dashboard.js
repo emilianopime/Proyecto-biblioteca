@@ -124,6 +124,26 @@ function info_cpu(pc) {
 
 let ultimaActualizacion = null;
 let servidorCaidoDesde = null;
+let filtroEstado = null;
+
+function aplicarFiltroEstado() {
+    const info = document.getElementById('filtro-estado-info');
+    for (const el of document.querySelectorAll('.computer-card')) {
+        el.hidden = Boolean(filtroEstado) && !el.classList.contains(filtroEstado);
+    }
+    for (const b of document.querySelectorAll('button.qs-card')) {
+        b.setAttribute('aria-pressed', String(b.dataset.estado === filtroEstado));
+    }
+    const nombres = { 'libre': 'solo libres', 'en-uso': 'solo en uso', 'sin-conexion': 'solo sin conexión' };
+    info.textContent = filtroEstado ? `· ${nombres[filtroEstado]}` : '';
+}
+
+for (const b of document.querySelectorAll('button.qs-card')) {
+    b.onclick = () => {
+        filtroEstado = filtroEstado === b.dataset.estado ? null : b.dataset.estado;
+        aplicarFiltroEstado();
+    };
+}
 
 function hace(ms) {
     const s = Math.round(ms / 1000);
@@ -201,6 +221,7 @@ function pintarEquipos(lista) {
     if (ordenActual.join('|') !== ordenNuevo.join('|')) {
         for (const id of ordenNuevo) contenedor.appendChild(existentes.get(id) || contenedor.querySelector(`.computer-card[data-id="${CSS.escape(id)}"]`));
     }
+    aplicarFiltroEstado();
 }
 
 async function loadComputers() {
@@ -233,15 +254,27 @@ async function loadComputers() {
     document.getElementById('refresh-info').textContent = textoActualizado();
 }
 
-async function deleteComputer(id, nombre) {
-    if (!confirm(`¿Quitar ${nombre} del monitor?\n\nSolo desaparece de esta lista. Si la máquina sigue encendida, volverá a aparecer sola.`)) return;
+const dialogoQuitar = document.getElementById('dialogo-quitar');
+let equipoAQuitar = null;
+
+function deleteComputer(id, nombre) {
+    equipoAQuitar = { id, nombre };
+    document.getElementById('quitar-nombre').textContent = nombre;
+    dialogoQuitar.showModal();
+}
+document.getElementById('quitar-cancelar').onclick = () => dialogoQuitar.close();
+document.getElementById('quitar-confirmar').onclick = async () => {
+    const { id, nombre } = equipoAQuitar || {};
+    dialogoQuitar.close();
+    if (!id) return;
     try {
         await leerJson(await fetch(`/api/computer/${encodeURIComponent(id)}`, { method: 'DELETE' }));
     } catch (e) {
-        alert(`No se pudo quitar ${nombre}: ${e.message}`);
+        if (e.message === 'Sesión expirada') return;
+        document.getElementById('refresh-info').textContent = `no se pudo quitar ${nombre}: ${e.message}`;
     }
     loadComputers();
-}
+};
 
 setInterval(loadComputers, 5000);
 setInterval(() => {
@@ -423,16 +456,21 @@ function mostrarMensaje(tipo, texto, detalle, extraHtml = '') {
     msg.innerHTML = `${spinner}<span>${escapar(texto)}</span>${extraHtml}${det}`;
 }
 
+let cargaEnCurso = null;
+
 async function enviarCsv(archivo) {
     confirmBox.hidden = true;
     zone.disabled = true;
-    mostrarMensaje('procesando', `Cargando ${archivo.name}...`, 'Puede tardar unos segundos con archivos grandes. No cierres esta página.');
+    mostrarMensaje('procesando', `Cargando ${archivo.name}...`, 'Puede tardar unos segundos con archivos grandes. No cierres esta página.',
+        '<button type="button" class="btn-secondary" id="upload-abort">Cancelar</button>');
+    cargaEnCurso = new AbortController();
+    document.getElementById('upload-abort').onclick = () => cargaEnCurso.abort();
 
     const formData = new FormData();
     formData.append('file', archivo);
 
     try {
-        const datos = await leerJson(await fetch('/api/upload', { method: 'POST', body: formData }));
+        const datos = await leerJson(await fetch('/api/upload', { method: 'POST', body: formData, signal: cargaEnCurso.signal }));
         const cuantos = (datos.message || '').match(/\d+/);
         const n = cuantos ? formatearNumero(cuantos[0]) : null;
         const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -442,6 +480,12 @@ async function enviarCsv(archivo) {
         cargarConteoPadron();
     } catch (e) {
         if (e.message === 'Sesión expirada') return;
+        if (e.name === 'AbortError') {
+            mostrarMensaje('error', 'Carga cancelada.',
+                'Si el servidor ya había terminado de procesar el archivo, el padrón pudo quedar reemplazado; revisa el conteo de arriba.');
+            cargarConteoPadron();
+            return;
+        }
         const esRed = e instanceof TypeError;
         if (esRed) {
             mostrarMensaje('error', 'No se pudo conectar con el servidor.',
@@ -456,6 +500,7 @@ async function enviarCsv(archivo) {
         }
     } finally {
         zone.disabled = false;
+        cargaEnCurso = null;
     }
 }
 
